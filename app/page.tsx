@@ -74,7 +74,7 @@ export default function LandingPage() {
                   transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
                 />
               </div>
-              <span className="text-2xl font-light tracking-wide">DecentWork</span>
+              <span className="text-2xl font-light tracking-wide">Skillance</span>
             </motion.div>
 
             <div className="hidden md:flex items-center space-x-8">

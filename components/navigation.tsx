@@ -62,7 +62,7 @@ export default function Navigation({ children }: NavigationProps) {
                     transition={{ duration: 0.2 }}
                     className="text-xl font-light tracking-wide whitespace-nowrap"
                   >
-                    DecentWork
+                    Skillance
                   </motion.span>
                 )}
               </AnimatePresence>

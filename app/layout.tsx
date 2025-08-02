@@ -6,7 +6,7 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"], weight: ["100", "200", "300", "400", "500", "600", "700"] })
 
 export const metadata: Metadata = {
-  title: "DecentWork - Decentralized Work Platform",
+  title: "Skillance - Decentralized Work Platform",
   description: "Connect with mentors and find freelance opportunities in a decentralized ecosystem",
     generator: 'v0.dev'
 }
