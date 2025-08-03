@@ -1,11 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Wallet, Zap, Users, Briefcase, Shield, Star, ArrowRight, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
+import dynamic from "next/dynamic"
+
+// Dynamically import WalletConnectButton to prevent SSR issues
+const WalletConnectButton = dynamic(() => import("@/components/wallet-connect"), {
+  ssr: false,
+})
 
 export default function LandingPage() {
   const [isConnecting, setIsConnecting] = useState(false)
@@ -152,41 +157,9 @@ export default function LandingPage() {
 
                 <p className="text-gray-400 mb-8 text-sm font-light">Secure access using your digital wallet</p>
 
-                <Button
-                  onClick={handleWalletConnect}
-                  disabled={isConnecting}
-                  className="w-full bg-gradient-to-r from-blue-500/80 to-purple-600/80 hover:from-blue-500 hover:to-purple-600 border-0 backdrop-blur-sm text-white font-light py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25"
-                >
-                  <AnimatePresence mode="wait">
-                    {isConnecting ? (
-                      <motion.div
-                        key="connecting"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="flex items-center space-x-3"
-                      >
-                        <motion.div
-                          className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                        />
-                        <span>Connecting...</span>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="connect"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="flex items-center space-x-2"
-                      >
-                        <span>Connect Wallet</span>
-                        <ArrowRight className="h-4 w-4" />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </Button>
+                <div className="w-full">
+                  <WalletConnectButton />
+                </div>
               </CardContent>
             </Card>
           </motion.div>

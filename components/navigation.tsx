@@ -2,12 +2,13 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Wallet, Zap, Users, Briefcase, Home, MessageCircle } from "lucide-react"
+import { ConnectWallet, useAddress } from "@thirdweb-dev/react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 
 interface NavigationProps {
@@ -17,6 +18,15 @@ interface NavigationProps {
 export default function Navigation({ children }: NavigationProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const pathname = usePathname()
+  const address = useAddress()
+  const router = useRouter()
+
+  useEffect(() => {
+    // Only redirect if we're not already on the main page and wallet is disconnected
+    if (!address && pathname !== '/') {
+      router.push('/');
+    }
+  }, [address, router, pathname])
 
   const navItems = [
     { href: "/home", label: "Home", icon: Home },
@@ -120,28 +130,24 @@ export default function Navigation({ children }: NavigationProps) {
 
         {/* Wallet Section */}
         <div className="p-4 border-t border-white/10">
-          <motion.div whileHover={{ scale: 1.02 }} className="cursor-pointer">
-            <Card className="bg-white/5 border-white/10 backdrop-blur-xl hover:bg-white/10 transition-all duration-300">
-              <CardContent className={`${isExpanded ? "p-4" : "p-3"} transition-all duration-300`}>
-                <div className="flex items-center space-x-3">
-                  <Wallet className="h-5 w-5 text-green-400 flex-shrink-0" />
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -10 }}
-                        transition={{ duration: 0.2 }}
-                        className="min-w-0"
-                      >
-                        <p className="text-white text-sm font-medium whitespace-nowrap">Connected</p>
-                        <p className="text-gray-400 text-xs whitespace-nowrap">0x1234...5678</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </CardContent>
-            </Card>
+          <motion.div whileHover={{ x: isExpanded ? 5 : 0 }} className="relative">
+            <div className={isExpanded ? 'block' : 'opacity-0'}>
+              <ConnectWallet 
+                theme="dark"
+                btnTitle={address ? "Connected" : "Connect Wallet"}
+                className="w-full !bg-transparent hover:!bg-white/5 !px-4 !py-2 !border-white/10"
+                modalSize="compact"
+                hideTestnetFaucet
+              />
+            </div>
+            <button
+              onClick={() => (document.querySelector('.tw-connect-wallet') as HTMLElement)?.click()}
+              className={`absolute inset-0 flex items-center justify-center rounded-xl transition-all duration-300 hover:bg-white/5 ${
+                isExpanded ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
+              }`}
+            >
+              <Wallet className={`h-5 w-5 ${address ? 'text-green-400' : 'text-red-400'}`} />
+            </button>
           </motion.div>
         </div>
       </motion.div>

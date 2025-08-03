@@ -1,14 +1,14 @@
-import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import Providers from "./providers"
 
 const inter = Inter({ subsets: ["latin"], weight: ["100", "200", "300", "400", "500", "600", "700"] })
 
 export const metadata: Metadata = {
   title: "Skillance - Decentralized Work Platform",
   description: "Connect with mentors and find freelance opportunities in a decentralized ecosystem",
-    generator: 'v0.dev'
+  generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -18,7 +18,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
     </html>
   )
 }

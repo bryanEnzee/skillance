@@ -4,8 +4,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Users, Briefcase, Wallet, TrendingUp, Star, MessageCircle } from "lucide-react"
 import Link from "next/link"
+import { ConnectWallet, useAddress } from "@thirdweb-dev/react"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 
 export default function Dashboard() {
+  const address = useAddress();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!address) {
+      router.push('/');
+    }
+  }, [address, router]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
       <div className="container mx-auto px-4 py-8">
@@ -17,10 +29,16 @@ export default function Dashboard() {
             </h1>
             <p className="text-gray-400 mt-2">Choose your path in the decentralized economy</p>
           </div>
-          <div className="flex items-center space-x-2 bg-gray-800/50 px-4 py-2 rounded-lg">
-            <Wallet className="h-5 w-5 text-green-400" />
-            <span className="text-sm">0x1234...5678</span>
-          </div>
+          <ConnectWallet 
+            theme="dark"
+            btnTitle={address ? "Connected" : "Connect Wallet"}
+            className={`!border-0 !text-white transition-all duration-300 ${
+              address 
+                ? "!bg-white/5 hover:!bg-white/10" 
+                : "!bg-red-500/5 hover:!bg-red-500/10"
+            }`}
+            modalSize="compact"
+          />
         </div>
 
         {/* Stats Cards */}
