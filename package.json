@@ -6,7 +6,9 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "deploy:localnet": "npx hardhat run scripts/deploy.ts --network sapphireLocalnet",
+    "deploy:testnet": "npx hardhat run scripts/deploy.ts --network sapphireTestnet"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",
@@ -68,6 +70,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@oasisprotocol/sapphire-hardhat": "^2.22.2",
     "@types/bn.js": "^5.2.0",
     "@types/caseless": "^0.12.5",
     "@types/elliptic": "^6.4.18",

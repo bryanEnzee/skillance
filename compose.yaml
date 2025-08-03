@@ -1,0 +1,20 @@
+services:
+  skillance: 
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "ghcr.io/mrvnsyh/skillance" # Adjust based on your Github Username
+    platform: linux/amd64
+    ports:
+      - "3000:3000" 
+
+#     Default from oasis rofl init
+#     volumes:
+#       - my-volume:/root/.my-volume
+#       - /run/rofl-appd.sock:/run/rofl-appd.sock
+#     environment:
+#       - MY_SECRET_1=${MY_SECRET_1}
+#       - MY_SECRET_2=${MY_SECRET_2}
+
+# volumes:
+#   my-volume:
