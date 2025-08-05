@@ -14,8 +14,13 @@ const config: HardhatUserConfig = {
       accounts: accounts,
     },
     sapphireLocalnet: {
-      url: "http://localhost:8545", 
-      chainId: 0x5afd, 
+      url: "http://localhost:8545",
+      chainId: 0x5afd,
+      accounts: accounts,
+    },
+    arbitrumSepolia: {
+      url: `https://arbitrum-sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      chainId: 421614,
       accounts: accounts,
     },
   },
