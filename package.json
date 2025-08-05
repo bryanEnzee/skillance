@@ -8,7 +8,8 @@
     "lint": "next lint",
     "start": "next start",
     "deploy:localnet": "npx hardhat run scripts/deploy.ts --network sapphireLocalnet",
-    "deploy:testnet": "npx hardhat run scripts/deploy.ts --network sapphireTestnet"
+    "deploy:testnet": "npx hardhat run scripts/deploy.ts --network sapphireTestnet",
+    "deploy:arbitrum": "npx hardhat run scripts/deploy.ts --network arbitrumSepolia"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",
