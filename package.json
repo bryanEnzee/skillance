@@ -2,13 +2,16 @@
   "name": "my-v0-project",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
-    "deploy:localnet": "npx hardhat run scripts/deploy.ts --network sapphireLocalnet",
-    "deploy:testnet": "npx hardhat run scripts/deploy.ts --network sapphireTestnet"
+    "deploy:localnet": "npx hardhat run scripts/deploy.ts --network sapphireLocalnet --tsconfig tsconfig.hardhat.json",
+    "deploy:testnet": "npx hardhat run scripts/deploy.ts --network sapphireTestnet --tsconfig tsconfig.hardhat.json"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",

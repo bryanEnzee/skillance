@@ -1,9 +1,7 @@
 import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
-import "@oasisprotocol/sapphire-hardhat";
-import * as dotenv from "dotenv";
-
-dotenv.config();
+require("@nomicfoundation/hardhat-toolbox");
+require("@oasisprotocol/sapphire-hardhat");
+require("dotenv").config();
 
 const accounts = process.env.PRIVATE_KEY ? [`${process.env.PRIVATE_KEY}`] : [];
 
