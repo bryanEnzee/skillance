@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Bot, Send, Sparkles } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import ReactMarkdown from 'react-markdown'
 
 interface Message {
   role: "user" | "assistant"
@@ -91,24 +92,57 @@ export default function AIChat({ type, onRecommendation }: AIChatProps) {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }])
     setIsTyping(true)
 
-    // Simulate AI processing
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mode: 'chat',
+          question: userMessage
+        }),
+      })
 
-    const recommendations = type === "mentor" ? mentorRecommendations : freelanceRecommendations
-    const responseContent =
-      type === "mentor"
-        ? `Based on your interest in "${userMessage}", I've found some excellent mentors who can help you. Here are my top recommendations:`
-        : `Based on your requirements for "${userMessage}", I've found some great project opportunities that match your criteria:`
+      if (!response.ok) {
+        throw new Error('Failed to get AI response')
+      }
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "assistant",
-        content: responseContent,
-        recommendations: recommendations,
-      },
-    ])
-    setIsTyping(false)
+      // Create a message placeholder for streaming
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }])
+      
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let streamedContent = ""
+
+      while (reader) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        streamedContent += chunk
+
+        // Update the last message with the accumulated content
+        setMessages((prev) => {
+          const newMessages = [...prev]
+          newMessages[newMessages.length - 1] = {
+            role: "assistant",
+            content: streamedContent
+          }
+          return newMessages
+        })
+      }
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "I apologize, but I encountered an error while processing your request. Please try again.",
+        },
+      ])
+    } finally {
+      setIsTyping(false)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -165,7 +199,23 @@ export default function AIChat({ type, onRecommendation }: AIChatProps) {
                           : "bg-white/10 text-gray-200 backdrop-blur-sm"
                       }`}
                     >
-                      {message.content}
+                      {message.role === "user" ? (
+                        message.content
+                      ) : (
+                        <ReactMarkdown
+                          components={{
+                            h2: ({children}) => <h2 className="text-xl font-semibold mt-4 mb-2">{children}</h2>,
+                            h3: ({children}) => <h3 className="text-lg font-semibold mt-3 mb-2">{children}</h3>,
+                            p: ({children}) => <p className="mb-2">{children}</p>,
+                            ul: ({children}) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
+                            ol: ({children}) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
+                            li: ({children}) => <li className="mb-1">{children}</li>,
+                            code: ({children}) => <code className="bg-black/30 rounded px-1">{children}</code>,
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      )}
                     </div>
 
                     {/* Recommendations */}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,8 +10,9 @@ import { Search, Star, Calendar, MessageCircle, DollarSign, Users } from "lucide
 import Link from "next/link"
 import { motion } from "framer-motion"
 import Navigation from "@/components/navigation"
-import AIChat from "@/components/ai-chat"
+import AISidebar from "@/components/ai-sidebar"
 import MyActivitiesButton from "@/components/my-activities-button"
+import MainLayout from "@/components/main-layout"
 
 const mentors = [
   {
@@ -64,7 +65,7 @@ export default function MentorPage() {
       mentor.expertise.some((skill) => skill.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
-  const handleMentorRecommendation = (mentorId: number) => {
+  const highlightMentor = (mentorId: number) => {
     const element = document.getElementById(`mentor-${mentorId}`)
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "center" })
@@ -75,9 +76,25 @@ export default function MentorPage() {
     }
   }
 
+  // Listen for custom events from the AI sidebar
+  useEffect(() => {
+    const handleMentorHighlight = (event: CustomEvent) => {
+      if (event.detail?.mentorId) {
+        highlightMentor(event.detail.mentorId)
+      }
+    }
+
+    window.addEventListener('highlightMentor' as any, handleMentorHighlight as EventListener)
+
+    return () => {
+      window.removeEventListener('highlightMentor' as any, handleMentorHighlight as EventListener)
+    }
+  }, [])
+
   return (
     <Navigation>
-      <div className="p-6 lg:p-12">
+      <MainLayout>
+        <div className="p-6 lg:p-12">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -92,9 +109,6 @@ export default function MentorPage() {
           </h1>
           <p className="text-gray-400 text-xl font-light">Connect with industry leaders and accelerate your growth</p>
         </motion.div>
-
-        {/* AI Chat */}
-        <AIChat type="mentor" onRecommendation={handleMentorRecommendation} />
 
         {/* Search and My Activities */}
         <motion.div
@@ -227,6 +241,9 @@ export default function MentorPage() {
           ))}
         </div>
       </div>
+      </MainLayout>
+      {/* AI Sidebar */}
+      <AISidebar />
     </Navigation>
   )
 }
