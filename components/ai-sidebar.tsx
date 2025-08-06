@@ -1,14 +1,30 @@
 "use client"
 
-import type React from "react"
-import { useState, useRef, useEffect } from "react"
-import { Bot, Send, ChevronLeft, ChevronRight, GripVertical } from "lucide-react"
-import { motion, AnimatePresence, useMotionValue } from "framer-motion"
+import React, { useState, useRef, useEffect } from "react"
+import { Bot, Send, ChevronLeft, ChevronRight, GripVertical, Plus, Clock, ChevronDown } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import styles from './ai-sidebar.module.css'
 import { useSidebarStore } from "@/store/sidebar-store"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from 'react-markdown'
+import { ethers } from "ethers"
+
+const USDC_ADDRESS = "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d";
+const RECEIVER_ADDRESS = "0x29E5D2d96Ee66C35c16075558A2A66a529Ef284F";
+const USDC_ABI = [
+  "function transfer(address to, uint amount) returns (bool)",
+  "function decimals() view returns (uint8)"
+];
+const PAYMENT_AMOUNT = "0.005";
+const FREE_CHAT_LIMIT = 5;
+
+// Dummy sessions for dropdown (replace with real data or logic)
+const VERSIONS = [
+  { id: "1", name: "Session 1", date: "2024-07-01" },
+  { id: "2", name: "Session 2", date: "2024-07-10" },
+  { id: "3", name: "Session 3", date: "2024-07-17" }
+];
 
 interface Message {
   role: "user" | "assistant"
@@ -27,48 +43,67 @@ export default function AISidebar() {
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+  // Payment & paywall logic
+  const [paidChats, setPaidChats] = useState(0)
+  const [showPaywall, setShowPaywall] = useState(false)
+  const [isPaying, setIsPaying] = useState(false)
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null)
+  const [payError, setPayError] = useState<string | null>(null)
 
+  // Version dropdown
+  const [showVersionDropdown, setShowVersionDropdown] = useState(false)
+
+  // Scroll to bottom on new message
   useEffect(() => {
-    scrollToBottom()
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  const highlightMentor = (mentorId: number) => {
-    // Dispatch a custom event that the page will listen for
-    const event = new CustomEvent('highlightMentor', {
-      detail: { mentorId }
-    })
-    window.dispatchEvent(event)
+  // Show paywall if needed
+  useEffect(() => {
+    const userMessages = messages.filter(m => m.role === "user").length
+    if (userMessages >= FREE_CHAT_LIMIT && paidChats < (userMessages - FREE_CHAT_LIMIT + 1)) {
+      setShowPaywall(true)
+    } else {
+      setShowPaywall(false)
+    }
+  }, [messages, paidChats])
+
+  // Main send message logic
+  const handleSendMessage = () => {
+    const messageToSend = newMessage.trim();
+    if (!messageToSend) return;
+
+    const userMessages = messages.filter(m => m.role === "user").length;
+    if (userMessages >= FREE_CHAT_LIMIT && paidChats < (userMessages - FREE_CHAT_LIMIT + 1)) {
+      setShowPaywall(true);
+      setPendingMessage(messageToSend);
+      setNewMessage("");
+      setPayError(null);
+      return;
+    }
+
+    setNewMessage("");
+    setPendingMessage(null);
+    displayAndFetchAIResponse(messageToSend);
   }
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim()) return
-
-    const userMessage = newMessage.trim()
-    setNewMessage("")
+  // Helper to show message and fetch response
+  const displayAndFetchAIResponse = async (userMessage: string) => {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }])
     setIsTyping(true)
 
     try {
       const response = await fetch('/api/ai', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'chat',
           question: userMessage
         }),
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to get AI response')
-      }
-
+      if (!response.ok) throw new Error('Failed to get AI response')
       setMessages((prev) => [...prev, { role: "assistant", content: "" }])
-      
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
       let streamedContent = ""
@@ -76,10 +111,8 @@ export default function AISidebar() {
       while (reader) {
         const { done, value } = await reader.read()
         if (done) break
-
         const chunk = decoder.decode(value)
         streamedContent += chunk
-
         setMessages((prev) => {
           const newMessages = [...prev]
           newMessages[newMessages.length - 1] = {
@@ -90,12 +123,16 @@ export default function AISidebar() {
         })
       }
     } catch (error) {
+      let msg = "Unknown error";
+      if (typeof error === "string") msg = error;
+      else if (error && typeof error === "object") {
+        if ("message" in error) msg = (error as any).message;
+        else if ("reason" in error) msg = (error as any).reason;
+        else msg = JSON.stringify(error);
+      }
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content: "I apologize, but I encountered an error while processing your request. Please try again.",
-        },
+        { role: "assistant", content: "I apologize, but I encountered an error while processing your request. " + msg },
       ])
     } finally {
       setIsTyping(false)
@@ -109,9 +146,153 @@ export default function AISidebar() {
     }
   }
 
+  // Payment handler
+  const handlePay = async () => {
+    setIsPaying(true);
+    setPayError(null);
+    try {
+      if (!window.ethereum) throw new Error("No wallet found.");
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, signer);
+      const decimals = await usdc.decimals();
+      const amount = ethers.utils.parseUnits(PAYMENT_AMOUNT, decimals);
+      const tx = await usdc.transfer(RECEIVER_ADDRESS, amount);
+      await tx.wait();
+      setPaidChats((prev) => prev + 1);
+      setShowPaywall(false);
+
+      // Only after payment, show/send the message and fetch AI response
+      if (pendingMessage) {
+        displayAndFetchAIResponse(pendingMessage);
+      }
+      setPendingMessage(null);
+      setPayError(null);
+    } catch (err) {
+      let msg = "Unknown error";
+      if (typeof err === "string") msg = err;
+      else if (err && typeof err === "object") {
+        if ("message" in err) msg = (err as any).message;
+        else if ("reason" in err) msg = (err as any).reason;
+        else msg = JSON.stringify(err);
+      }
+      setPayError("Payment failed: " + msg);
+    }
+    setIsPaying(false);
+  };
+
+  // Optionally allow user to close paywall and restore message to input
+  const handleClosePaywall = () => {
+    setShowPaywall(false);
+    if (pendingMessage) {
+      setNewMessage(pendingMessage);
+    }
+    // Do not clear pendingMessage; they might want to retry
+  };
+
+  // Version dropdown as component
+  function VersionDropdown() {
+    return (
+      <div className="relative">
+        <Button
+          onClick={() => setShowVersionDropdown((v) => !v)}
+          className="backdrop-blur-sm bg-white/10 hover:bg-white/20 border border-purple-400/30 hover:border-purple-400 text-purple-400 shadow-none rounded-xl px-4 py-2 flex items-center gap-2 font-medium transition-all min-w-[110px]"
+          style={{ boxShadow: "0 2px 12px 0 rgba(150,80,255,0.07)" }}
+          aria-label="View Version History"
+        >
+          <Clock className="w-5 h-5" />
+          <span className="whitespace-nowrap">Version</span>
+          <ChevronDown className="w-4 h-4 ml-1" />
+        </Button>
+        {showVersionDropdown && (
+          <div
+            className="absolute left-0 mt-2 w-56 bg-white/90 text-gray-900 rounded-xl shadow-lg border border-purple-200 z-50 overflow-hidden"
+            style={{ minWidth: "180px" }}
+          >
+            {VERSIONS.map((ver) => (
+              <button
+                key={ver.id}
+                onClick={() => {
+                  setShowVersionDropdown(false);
+                  alert(`Switch to version: ${ver.name}`); // Replace with real version select logic
+                }}
+                className="flex flex-col w-full px-4 py-3 text-left hover:bg-purple-100/80 transition"
+              >
+                <span className="font-medium">{ver.name}</span>
+                <span className="text-xs text-gray-500">{ver.date}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* Toggle Button */}
+      {/* Paywall Modal */}
+      <AnimatePresence>
+        {showPaywall && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          >
+            <div className="bg-white rounded-xl p-8 shadow-2xl flex flex-col items-center gap-5 min-w-[320px] max-w-[95vw]">
+              <Bot className="h-8 w-8 text-purple-400 mb-2" />
+              <h2 className="text-xl font-bold text-purple-600 mb-1">Continue the Conversation</h2>
+              <p className="text-gray-700 text-center mb-3">
+                You've used your free chat limit.<br />
+                <span className="font-semibold">Pay $0.005 USDC</span> to send <b>1 more message</b>.<br />
+                (Repeat payment for every extra message.)
+              </p>
+              {/* Show the blocked message, if any */}
+              {pendingMessage && (
+                <div className="w-full bg-purple-50 rounded p-2 mb-2 text-gray-700 text-xs border border-purple-100">
+                  <b>Your message:</b> <br />
+                  {pendingMessage}
+                </div>
+              )}
+              <Button
+                onClick={handlePay}
+                disabled={isPaying}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold px-8 py-3 rounded-xl flex items-center gap-2"
+              >
+                {isPaying ? (
+                  <>
+                    <span className="animate-spin mr-2 border-2 border-t-2 border-t-white border-blue-200 rounded-full w-5 h-5 inline-block" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <span>Pay with USDC</span>
+                    <Send className="h-5 w-5" />
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                className="text-gray-400 text-xs mt-1"
+                onClick={handleClosePaywall}
+                disabled={isPaying}
+              >
+                Cancel
+              </Button>
+              <p className="text-gray-400 text-xs mt-2 text-center">
+                Transaction on Arbitrum Sepolia. Your wallet will ask for confirmation.<br />
+                <span className="text-purple-400">Receiver: {RECEIVER_ADDRESS.slice(0,6)}...{RECEIVER_ADDRESS.slice(-4)}</span>
+              </p>
+              {payError && (
+                <div className="text-red-500 text-xs mt-2 text-center">{payError}</div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar Toggle */}
       <motion.button
         className="fixed right-0 top-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-purple-500/80 to-pink-500/80 text-white p-2 rounded-l-lg shadow-lg"
         onClick={() => setIsOpen(!isOpen)}
@@ -122,7 +303,7 @@ export default function AISidebar() {
         {isOpen ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
       </motion.button>
 
-      {/* Sidebar */}
+      {/* Main Sidebar */}
       <motion.div
         className={`fixed right-0 top-0 h-full z-40 ${styles.aiSidebarBackground} ${styles.aiSidebarShadow}`}
         style={{ width: useSidebarStore(state => state.width) }}
@@ -131,34 +312,35 @@ export default function AISidebar() {
         transition={{ type: "spring", damping: 20, stiffness: 100 }}
       >
         <div className={styles.aiSidebarDivider} />
-        {/* Resize Handle */}
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-purple-500/20 group flex items-center"
-          onMouseDown={(e) => {
-            e.preventDefault()
-            const startX = e.pageX
-            const startWidth = useSidebarStore.getState().width
-
-            const onMouseMove = (e: MouseEvent) => {
-              const delta = startX - e.pageX
-              const newWidth = Math.min(
-                Math.max(startWidth + delta, useSidebarStore.getState().minWidth),
-                useSidebarStore.getState().maxWidth
-              )
-              useSidebarStore.getState().setWidth(newWidth)
-            }
-
-            const onMouseUp = () => {
-              document.removeEventListener('mousemove', onMouseMove)
-              document.removeEventListener('mouseup', onMouseUp)
-            }
-
-            document.addEventListener('mousemove', onMouseMove)
-            document.addEventListener('mouseup', onMouseUp)
-          }}
-        >
-          <GripVertical className="w-4 h-4 text-white/0 group-hover:text-white/50 transition-colors absolute left-0" />
+        
+        {/* Rectangle Version/New Chat buttons, floating top right */}
+        <div className="absolute top-4 right-4 flex flex-row gap-2 z-50">
+          {/* Version Dropdown */}
+          <VersionDropdown />
+          {/* New Chat Button */}
+          <Button
+            onClick={() => {
+              setMessages([
+                {
+                  role: "assistant",
+                  content: "Hi! I'm your AI assistant. How can I help you learn about Web3 and blockchain development?",
+                },
+              ]);
+              setPaidChats(0);
+              setNewMessage("");
+              setShowPaywall(false);
+              setPendingMessage(null);
+              setPayError(null);
+            }}
+            className="backdrop-blur-sm bg-white/10 hover:bg-white/20 border border-pink-400/30 hover:border-pink-400 text-pink-400 shadow-none rounded-xl px-4 py-2 flex items-center gap-2 font-medium transition-all min-w-[110px]"
+            style={{ boxShadow: "0 2px 12px 0 rgba(255,80,180,0.07)" }}
+            aria-label="Start New Chat"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="whitespace-nowrap">New Chat</span>
+          </Button>
         </div>
+        
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center space-x-3 p-4 border-b border-white/10">
@@ -168,7 +350,6 @@ export default function AISidebar() {
               <p className="text-gray-400 text-sm font-light">Your Web3 Learning Guide</p>
             </div>
           </div>
-
           {/* Messages */}
           <div className={`${styles.messageContainer} ${styles.hideScrollbar}`}>
             <AnimatePresence>
@@ -177,7 +358,7 @@ export default function AISidebar() {
                   key={index}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  transition={{ delay: index * 0.05 }}
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
@@ -193,29 +374,19 @@ export default function AISidebar() {
                       <ReactMarkdown
                         components={{
                           h2: ({children}) => (
-                            <h2 className="text-xl font-semibold mt-6 mb-3 text-purple-300 border-b border-purple-500/20 pb-2">
-                              {children}
-                            </h2>
+                            <h2 className="text-xl font-semibold mt-6 mb-3 text-purple-300 border-b border-purple-500/20 pb-2">{children}</h2>
                           ),
                           h3: ({children}) => (
-                            <h3 className="text-lg font-medium mt-4 mb-2 text-pink-300">
-                              {children}
-                            </h3>
+                            <h3 className="text-lg font-medium mt-4 mb-2 text-pink-300">{children}</h3>
                           ),
                           p: ({children}) => (
-                            <p className="mb-3 leading-relaxed">
-                              {children}
-                            </p>
+                            <p className="mb-3 leading-relaxed">{children}</p>
                           ),
                           ul: ({children}) => (
-                            <ul className="list-none space-y-2 mb-4">
-                              {children}
-                            </ul>
+                            <ul className="list-none space-y-2 mb-4">{children}</ul>
                           ),
                           ol: ({children}) => (
-                            <ol className="list-decimal pl-4 mb-4 space-y-2">
-                              {children}
-                            </ol>
+                            <ol className="list-decimal pl-4 mb-4 space-y-2">{children}</ol>
                           ),
                           li: ({children}) => (
                             <li className="flex items-start space-x-2">
@@ -224,14 +395,10 @@ export default function AISidebar() {
                             </li>
                           ),
                           code: ({children}) => (
-                            <code className="bg-purple-500/10 text-purple-300 rounded px-1.5 py-0.5 font-mono text-sm">
-                              {children}
-                            </code>
+                            <code className="bg-purple-500/10 text-purple-300 rounded px-1.5 py-0.5 font-mono text-sm">{children}</code>
                           ),
                           blockquote: ({children}) => (
-                            <blockquote className="border-l-2 border-purple-500/50 pl-4 my-4 text-purple-200 italic">
-                              {children}
-                            </blockquote>
+                            <blockquote className="border-l-2 border-purple-500/50 pl-4 my-4 text-purple-200 italic">{children}</blockquote>
                           ),
                           hr: () => (
                             <hr className="border-t border-purple-500/20 my-4" />
@@ -245,7 +412,6 @@ export default function AISidebar() {
                 </motion.div>
               ))}
             </AnimatePresence>
-
             {/* Typing Indicator */}
             <AnimatePresence>
               {isTyping && (
@@ -274,30 +440,36 @@ export default function AISidebar() {
                 </motion.div>
               )}
             </AnimatePresence>
-
             <div ref={messagesEndRef} />
           </div>
-
           {/* Input */}
           <div className="p-4 border-t border-white/10">
             <div className="flex space-x-2">
               <Input
-                placeholder="Ask anything..."
+                placeholder={showPaywall
+                  ? "Please pay to continue..."
+                  : "Ask anything..."}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 className="bg-white/5 border-white/10 text-white placeholder-gray-400 font-light"
-                disabled={isTyping}
+                disabled={isTyping || showPaywall}
               />
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || isTyping}
+                  onClick={() => handleSendMessage()}
+                  disabled={!newMessage.trim() || isTyping || showPaywall}
                   className="bg-gradient-to-r from-purple-500/80 to-pink-500/80 px-3"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               </motion.div>
+            </div>
+            {/* Show message limit */}
+            <div className="text-xs text-purple-300 mt-1 text-center">
+              {messages.filter(m => m.role === "user").length < FREE_CHAT_LIMIT
+                ? `Free messages left: ${Math.max(0, FREE_CHAT_LIMIT - messages.filter(m => m.role === "user").length)}`
+                : `Pay $0.005 USDC for every extra chat`}
             </div>
           </div>
         </div>

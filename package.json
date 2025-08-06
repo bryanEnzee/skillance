@@ -53,6 +53,7 @@
     "cmdk": "latest",
     "date-fns": "4.1.0",
     "embla-carousel-react": "latest",
+    "ethers": "^5.8.0",
     "framer-motion": "latest",
     "geist": "^1.3.1",
     "input-otp": "latest",
