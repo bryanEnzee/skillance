@@ -32,7 +32,7 @@ interface Message {
 }
 
 export default function AISidebar() {
-  const { width, isOpen, setIsOpen } = useSidebarStore()
+  const { width, isOpen, setIsOpen, setWidth, minWidth, maxWidth } = useSidebarStore()
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -52,6 +52,26 @@ export default function AISidebar() {
 
   // Version dropdown
   const [showVersionDropdown, setShowVersionDropdown] = useState(false)
+  const isResizing = useRef(false)
+
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizing.current = true
+    document.addEventListener('mousemove', handleResize)
+    document.addEventListener('mouseup', stopResizing)
+  }
+
+  const handleResize = (e: MouseEvent) => {
+    if (!isResizing.current) return
+    const newWidth = window.innerWidth - e.clientX
+    setWidth(newWidth)
+  }
+
+  const stopResizing = () => {
+    isResizing.current = false
+    document.removeEventListener('mousemove', handleResize)
+    document.removeEventListener('mouseup', stopResizing)
+  }
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -311,6 +331,10 @@ export default function AISidebar() {
         animate={{ x: isOpen ? 0 : useSidebarStore(state => state.width) }}
         transition={{ type: "spring", damping: 20, stiffness: 100 }}
       >
+        <div
+          onMouseDown={startResizing}
+          className="absolute left-0 top-0 h-full w-2 cursor-ew-resize z-50 bg-transparent"
+        />
         <div className={styles.aiSidebarDivider} />
         
         {/* Rectangle Version/New Chat buttons, floating top right */}
