@@ -21,7 +21,7 @@ module.exports = {
     arbitrumSepolia: {
       url: `https://arbitrum-sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
       chainId: 421614,
-      accounts: [privateKey],
+      accounts: [process.env.PAYMENT_PRIVATE_KEY],
     },
   },
 };
