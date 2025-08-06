@@ -5,12 +5,24 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Users, Briefcase, Star, DollarSign, MessageCircle } from "lucide-react"
+import {
+  Users,
+  Briefcase,
+  Star,
+  DollarSign,
+  MessageCircle,
+} from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"
-
+import { useAddress } from "@thirdweb-dev/react"
 const myMentors = [
   {
     id: 1,
@@ -80,7 +92,9 @@ export default function MyActivitiesButton() {
       </DialogTrigger>
       <DialogContent className="max-w-4xl bg-black/90 border-white/10 backdrop-blur-xl text-white">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-light">My Activities</DialogTitle>
+          <DialogTitle className="text-2xl font-light">
+            My Activities
+          </DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="mentors" className="w-full">
@@ -105,10 +119,14 @@ export default function MyActivitiesButton() {
               >
                 <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
                   <CardContent className="p-6">
+                    {/* Mentor Info */}
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-4">
                         <Avatar className="h-12 w-12">
-                          <AvatarImage src={mentor.avatar || "/placeholder.svg"} alt={mentor.name} />
+                          <AvatarImage
+                            src={mentor.avatar || "/placeholder.svg"}
+                            alt={mentor.name}
+                          />
                           <AvatarFallback className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-white">
                             {mentor.name
                               .split(" ")
@@ -117,16 +135,23 @@ export default function MyActivitiesButton() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <h3 className="text-lg font-light text-white">{mentor.name}</h3>
-                          <p className="text-gray-300 font-light">{mentor.title}</p>
-                          <p className="text-gray-400 text-sm font-light">{mentor.company}</p>
+                          <h3 className="text-lg font-light text-white">
+                            {mentor.name}
+                          </h3>
+                          <p className="text-gray-300 font-light">
+                            {mentor.title}
+                          </p>
+                          <p className="text-gray-400 text-sm font-light">
+                            {mentor.company}
+                          </p>
                         </div>
                       </div>
-
                       <div className="text-right">
                         <div className="flex items-center space-x-1 mb-2">
                           <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                          <span className="text-white font-medium">{mentor.rating}</span>
+                          <span className="text-white font-medium">
+                            {mentor.rating}
+                          </span>
                         </div>
                         <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
                           {mentor.sessionsCompleted} sessions
@@ -134,14 +159,23 @@ export default function MyActivitiesButton() {
                       </div>
                     </div>
 
+                    {/* Mentor Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/10">
                       <div>
-                        <p className="text-gray-400 text-sm font-light">Next Session</p>
-                        <p className="text-white text-sm">{mentor.nextSession}</p>
+                        <p className="text-gray-400 text-sm font-light">
+                          Next Session
+                        </p>
+                        <p className="text-white text-sm">
+                          {mentor.nextSession}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-gray-400 text-sm font-light">Total Spent</p>
-                        <p className="text-green-400 text-sm font-medium">${mentor.totalSpent}</p>
+                        <p className="text-gray-400 text-sm font-light">
+                          Total Spent
+                        </p>
+                        <p className="text-green-400 text-sm font-medium">
+                          ${mentor.totalSpent}
+                        </p>
                       </div>
                       <div className="flex space-x-2">
                         <Link href={`/chat`}>
@@ -155,7 +189,14 @@ export default function MyActivitiesButton() {
                           </Button>
                         </Link>
                       </div>
-                      <div>{mentor.canReview && <ReviewButton mentorId={mentor.id} mentorName={mentor.name} />}</div>
+                      <div>
+                        {mentor.canReview && (
+                          <ReviewButton
+                            mentorId={mentor.id}
+                            mentorName={mentor.name}
+                          />
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -173,10 +214,15 @@ export default function MyActivitiesButton() {
               >
                 <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
                   <CardContent className="p-6">
+                    {/* Job Info */}
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="text-lg font-light text-white">{job.title}</h3>
-                        <p className="text-gray-300 font-light">{job.client}</p>
+                        <h3 className="text-lg font-light text-white">
+                          {job.title}
+                        </h3>
+                        <p className="text-gray-300 font-light">
+                          {job.client}
+                        </p>
                       </div>
                       <Badge
                         className={`${
@@ -189,10 +235,13 @@ export default function MyActivitiesButton() {
                       </Badge>
                     </div>
 
+                    {/* Progress Bar */}
                     {job.status === "In Progress" && (
                       <div className="mb-4">
                         <div className="flex justify-between text-sm mb-2">
-                          <span className="text-gray-400 font-light">Progress</span>
+                          <span className="text-gray-400 font-light">
+                            Progress
+                          </span>
                           <span className="text-white">{job.progress}%</span>
                         </div>
                         <div className="w-full bg-gray-700 rounded-full h-2">
@@ -206,20 +255,38 @@ export default function MyActivitiesButton() {
                       </div>
                     )}
 
+                    {/* Job Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <p className="text-gray-400 text-sm font-light">Budget</p>
-                        <p className="text-green-400 text-sm font-medium">{job.budget}</p>
+                        <p className="text-gray-400 text-sm font-light">
+                          Budget
+                        </p>
+                        <p className="text-green-400 text-sm font-medium">
+                          {job.budget}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-gray-400 text-sm font-light">Deadline</p>
+                        <p className="text-gray-400 text-sm font-light">
+                          Deadline
+                        </p>
                         <p className="text-white text-sm">{job.deadline}</p>
                       </div>
                       <div>
-                        <p className="text-gray-400 text-sm font-light">Stake</p>
-                        <p className="text-yellow-400 text-sm font-medium">${job.stakeAmount}</p>
+                        <p className="text-gray-400 text-sm font-light">
+                          Stake
+                        </p>
+                        <p className="text-yellow-400 text-sm font-medium">
+                          ${job.stakeAmount}
+                        </p>
                       </div>
-                      <div>{job.canReview && <ReviewButton jobId={job.id} clientName={job.client} />}</div>
+                      <div>
+                        {job.canReview && (
+                          <ReviewButton
+                            jobId={job.id}
+                            clientName={job.client}
+                          />
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -282,44 +349,75 @@ function ReviewForm({
   clientName?: string
   onClose: () => void
 }) {
+  const userAddress = useAddress()
   const [rating, setRating] = useState(0)
   const [review, setReview] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
 
   const handleSubmit = async () => {
-    setIsSubmitting(true)
-    // Simulate review submission
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsSubmitting(false)
-    setIsSubmitted(true)
+    if (!userAddress) {
+      console.error("No connected wallet address")
+      return
+    }
 
-    // Auto close after showing success
-    setTimeout(() => {
-      onClose()
-      setIsSubmitted(false)
-      setRating(0)
-      setReview("")
-    }, 3000)
+    setIsSubmitting(true)
+    try {
+      // 1) Submit review (simulate or replace with actual call)
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      // 2) Transfer 0.1 USDC to the user
+      const resp = await fetch("/api/transfer-usdc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: userAddress }),
+      })
+      const { txHash, error } = await resp.json()
+      if (error) throw new Error(error)
+      console.log("Sent 0.1 USDC, txHash:", txHash)
+
+      // 3) Show success UI
+      setIsSubmitted(true)
+    } catch (err) {
+      console.error("Error during review or payment:", err)
+      // you can show a toast/error banner here
+    } finally {
+      setIsSubmitting(false)
+      // auto-close after 3s
+      setTimeout(() => {
+        onClose()
+        setIsSubmitted(false)
+        setRating(0)
+        setReview("")
+      }, 3000)
+    }
   }
 
   if (isSubmitted) {
     return (
       <div className="text-center p-6">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200 }}>
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 200 }}
+        >
           <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
             <Star className="h-8 w-8 text-green-400 fill-current" />
           </div>
         </motion.div>
-        <h3 className="text-xl font-light text-white mb-2">Review Submitted!</h3>
+        <h3 className="text-xl font-light text-white mb-2">
+          Review Submitted!
+        </h3>
         <p className="text-gray-300 font-light mb-4">Thank you for your feedback.</p>
         <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-xl p-4">
           <div className="flex items-center justify-center space-x-2 mb-2">
             <DollarSign className="h-5 w-5 text-green-400" />
             <span className="text-green-400 font-medium">Reward Earned!</span>
           </div>
-          <p className="text-white text-lg font-medium">+5 USDC</p>
-          <p className="text-gray-400 text-sm font-light">Micropayment reward for your review</p>
+          <p className="text-white text-lg font-medium">+0.1 USDC</p>
+          <p className="text-gray-400 text-sm font-light">
+            Micropayment reward for your review
+          </p>
         </div>
       </div>
     )
@@ -328,7 +426,9 @@ function ReviewForm({
   return (
     <div>
       <DialogHeader>
-        <DialogTitle className="text-xl font-light">Leave a Review for {mentorName || clientName}</DialogTitle>
+        <DialogTitle className="text-xl font-light">
+          Leave a Review for {mentorName || clientName}
+        </DialogTitle>
       </DialogHeader>
 
       <div className="space-y-6 mt-6">
@@ -366,7 +466,7 @@ function ReviewForm({
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Button
             onClick={handleSubmit}
-            disabled={rating === 0 || !review.trim() || isSubmitting}
+            disabled={!rating || !review.trim() || isSubmitting}
             className="w-full bg-gradient-to-r from-yellow-500/80 to-orange-500/80 hover:from-yellow-500 hover:to-orange-500 text-white font-light py-3"
           >
             {isSubmitting ? (
@@ -374,12 +474,12 @@ function ReviewForm({
                 <motion.div
                   className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                 />
                 <span>Submitting Review...</span>
               </div>
             ) : (
-              "Submit Review & Earn 5 USDC"
+              "Submit Review & Earn 0.1 USDC"
             )}
           </Button>
         </motion.div>
