@@ -1,0 +1,12 @@
+type Job @entity(immutable: false) {
+  id: ID!
+  jobId: BigInt!
+  employer: Bytes!
+  title: String!
+  description: String!
+  skills: String!
+  budget: BigInt!
+  durationInDays: Int!
+  stakeRequired: BigInt!
+  postedAt: BigInt!
+}

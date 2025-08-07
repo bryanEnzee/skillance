@@ -23,11 +23,16 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
     uint256 public constant POSTING_FEE = 5000000000000000; // 0.005 ETH in wei
 
     event JobPosted(
-        uint256 indexed jobId,
-        address indexed employer,
-        string title,
-        uint256 budget
+    uint256 indexed jobId,
+    address indexed employer,
+    string title,
+    string description,
+    string skills,
+    uint256 budget,
+    uint256 durationInDays,
+    uint256 stakeRequired
     );
+
 
     constructor(address initialOwner) Ownable(initialOwner) {
         nextJobId = 1;
@@ -72,7 +77,16 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
 
         nextJobId++;
 
-        emit JobPosted(jobId, msg.sender, _title, _budget);
+        emit JobPosted(
+            jobId,
+            msg.sender,
+            _title,
+            _description,
+            _skills,
+            _budget,
+            _durationInDays,
+            _stakeRequired
+        );
     }
 
     /**

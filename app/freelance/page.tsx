@@ -15,6 +15,7 @@ import MyActivitiesButton from "@/components/my-activities-button"
 import { useEffect } from "react";
 import { getFreelanceJobsContract } from "@/lib/contract";
 import { ethers } from "ethers";
+import { fetchJobsFromSubgraph } from "@/lib/fetchJobsFromSubgraph"
 
 
 // const [jobs, setJobs] = useState<any[]>([]);
@@ -64,42 +65,20 @@ export default function FreelancePage() {
   const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
-    const fetchJobs = async () => {
+    const loadJobs = async () => {
       try {
-        await window.ethereum.request({ method: "eth_requestAccounts" });
-        const contract = getFreelanceJobsContract();
-        const totalJobs = await contract.getTotalJobs();
-        const jobCount = Number(totalJobs);
-
-        const jobsData = [];
-        for (let i = 1; i <= jobCount; i++) {
-          const job = await contract.getJob(i);
-          jobsData.push({
-            id: job[0],
-            title: job[2],
-            description: job[3],
-            skills: JSON.parse(job[4]),
-            budget: `$${ethers.utils.formatEther(job[5])}`,
-            duration: `${job[6]} days`,
-            stakeRequired: Number(ethers.utils.formatEther(job[7])),
-            company: "N/A",
-            posted: "Just now",
-            applicants: 0,
-            rating: 4.8,
-            urgent: false,
-          });
-        }
-
-
-        setJobs(jobsData);
-        setLoading(false);
+        const jobsFromSubgraph = await fetchJobsFromSubgraph()
+        setJobs(jobsFromSubgraph)
       } catch (error) {
-        console.error("Failed to fetch jobs from contract:", error);
+        console.error("Failed to fetch jobs from subgraph:", error)
+      } finally {
+        setLoading(false)
       }
-    };
+    }
 
-    fetchJobs();
-  }, []);
+    loadJobs()
+  }, [])
+
 
   const filteredJobs = jobs.filter(
     (job) =>

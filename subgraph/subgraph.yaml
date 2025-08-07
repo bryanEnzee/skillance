@@ -8,21 +8,19 @@ dataSources:
     name: FreelanceJobs
     network: arbitrum-sepolia
     source:
-      address: "0xD5e5e7F8524FeD2601b13FA8487fc1FddcA9186E"
+      address: "0x207F67C688D3851240Cf661e0D0caf5f3675d5A6"
       abi: FreelanceJobs
+      startBlock: 181577071
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.9
+      apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - JobPosted
-        - OwnershipTransferred
+        - Job
       abis:
         - name: FreelanceJobs
           file: ./abis/FreelanceJobs.json
       eventHandlers:
-        - event: JobPosted(indexed uint256,indexed address,string,uint256)
+        - event: JobPosted(indexed uint256,indexed address,string,string,string,uint256,uint256,uint256)
           handler: handleJobPosted
-        - event: OwnershipTransferred(indexed address,indexed address)
-          handler: handleOwnershipTransferred
       file: ./src/freelance-jobs.ts
