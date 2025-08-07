@@ -59,7 +59,7 @@ const mentors = [
     avatar: "/placeholder.svg?height=64&width=64",
     available: true,
     sessions: 156,
-    walletAddress: "0x1234567890123456789012345678901234567890", // Marcus's wallet
+    walletAddress: "0x971360600908069c9F5d33B7cFA4A760C0Ec5a21", // Marcus's wallet
     schedule: {
       availableDates: [
         { date: "2024-02-15", day: "Thu", available: 2 },
@@ -91,7 +91,7 @@ const mentors = [
     avatar: "/placeholder.svg?height=64&width=64",
     available: false,
     sessions: 203,
-    walletAddress: "0x9876543210987654321098765432109876543210", // Elena's wallet
+    walletAddress: "0x971360600908069c9F5d33B7cFA4A760C0Ec5a21", // Elena's wallet
     schedule: {
       availableDates: [
         { date: "2024-02-15", day: "Thu", available: 0 },
@@ -165,46 +165,18 @@ export default function BookMentorPage() {
       // Convert date to timestamp
       const dateTimestamp = Math.floor(new Date(selectedDate).getTime() / 1000);
 
-      // Use mentor's specific wallet address
-      const mentorAddress = mentor.walletAddress;
+      // Use the mentor's rate from frontend data
+      const mentorRate = ethers.utils.parseEther(mentor.hourlyRate.toString());
+      console.log('Using mentor rate:', mentor.hourlyRate, 'ETH');
 
-      // Get the mentor's rate from the contract
-      let mentorRate;
-      try {
-        // Try to get the rate from the contract
-        try {
-          mentorRate = await contract.getMentorRate(mentorAddress);
-          console.log('Mentor rate from contract:', ethers.utils.formatEther(mentorRate), 'ETH');
-          
-          if (mentorRate.isZero()) {
-            console.log('Mentor rate is zero, using default rate');
-            // If rate is zero, use the frontend rate but convert to wei
-            mentorRate = ethers.utils.parseEther(mentor.hourlyRate.toString());
-          }
-        } catch (e) {
-          console.warn('Could not get mentor rate, using frontend rate', e);
-          // Fallback to the frontend rate if contract call fails
-          mentorRate = ethers.utils.parseEther(mentor.hourlyRate.toString());
-        }
-
-        // Show the actual rate being used
-        const rateInEth = parseFloat(ethers.utils.formatEther(mentorRate));
-        console.log('Using rate:', rateInEth, 'ETH');
-        
-      } catch (error) {
-        console.error('Error getting mentor rate:', error);
-        // Use frontend rate as last resort
-        mentorRate = ethers.utils.parseEther(mentor.hourlyRate.toString());
-      }
-
-      // Call the contract with the determined rate
+      // Call the contract with mentor ID instead of address
       const tx = await contract.bookSession(
-        mentorAddress,
+        mentor.id,
         dateTimestamp,
         selectedTime,
-        { 
+        {
           value: mentorRate,
-          gasLimit: 300000 
+          gasLimit: 300000
         });
 
       // Wait for transaction to be mined
