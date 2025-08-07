@@ -84,4 +84,35 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
         (bool success, ) = payable(owner()).call{value: balance}("");
         require(success, "Failed to withdraw fees.");
     }
+
+    function getTotalJobs() external view returns (uint256) {
+        return nextJobId - 1;
+    }
+
+    function getJob(uint256 _jobId) external view returns (
+        uint256 jobId,
+        address employer,
+        string memory title,
+        string memory description,
+        string memory skills,
+        uint256 budget,
+        uint256 durationInDays,
+        uint256 stakeRequired,
+        bool isPosted
+        ) {
+            Job memory job = jobs[_jobId];
+            require(job.isPosted, "Job does not exist.");
+                return (
+                    job.jobId,
+                    job.employer,
+                    job.title,
+                    job.description,
+                    job.skills,
+                    job.budget,
+                    job.durationInDays,
+                    job.stakeRequired,
+                    job.isPosted
+                );
+        }
+
 }

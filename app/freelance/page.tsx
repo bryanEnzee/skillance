@@ -64,42 +64,42 @@ export default function FreelancePage() {
   const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
-  const fetchJobs = async () => {
-    try {
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      const contract = getFreelanceJobsContract();
-      const totalJobs = await contract.getTotalJobs();
-      const jobCount = Number(totalJobs);
+    const fetchJobs = async () => {
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const contract = getFreelanceJobsContract();
+        const totalJobs = await contract.getTotalJobs();
+        const jobCount = Number(totalJobs);
 
-      const jobsData = [];
-      for (let i = 0; i < jobCount; i++) {
-        const job = await contract.getJob(i);
-        jobsData.push({
-          id: i,
-          title: job.title,
-          company: "N/A", 
-          budget: `$${ethers.utils.formatEther(job.budgetMin)} - $${ethers.utils.formatEther(job.budgetMax)}`,
-          duration: `${job.duration} days`,
-          posted: "Just now", 
-          applicants: job.applicants.toNumber?.() || 0,
-          skills: JSON.parse(job.skills || "[]"),
-          description: job.description,
-          stakeRequired: Number(ethers.utils.formatEther(job.stake)),
-          rating: 4.8,
-          urgent: job.isUrgent,
-        });
+        const jobsData = [];
+        for (let i = 1; i <= jobCount; i++) {
+          const job = await contract.getJob(i);
+          jobsData.push({
+            id: job[0],
+            title: job[2],
+            description: job[3],
+            skills: JSON.parse(job[4]),
+            budget: `$${ethers.utils.formatEther(job[5])}`,
+            duration: `${job[6]} days`,
+            stakeRequired: Number(ethers.utils.formatEther(job[7])),
+            company: "N/A",
+            posted: "Just now",
+            applicants: 0,
+            rating: 4.8,
+            urgent: false,
+          });
+        }
+
+
+        setJobs(jobsData);
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch jobs from contract:", error);
       }
+    };
 
-      setJobs(jobsData);
-      setLoading(false);
-    } catch (error) {
-      console.error("Failed to fetch jobs from contract:", error);
-    }
-  };
-
-  fetchJobs();
-}, []);
-  
+    fetchJobs();
+  }, []);
 
   const filteredJobs = jobs.filter(
     (job) =>
