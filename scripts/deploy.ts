@@ -47,7 +47,7 @@ async function main() {
   // For demonstration, let's deploy both and log their addresses.
   const lockAddress = await deployLock();
   const freelanceJobsAddress = await deployFreelanceJobs();
-  
+
   console.log("\n--- Deployment Summary ---");
   console.log("Lock contract address:", lockAddress);
   console.log("FreelanceJobs contract address:", freelanceJobsAddress);

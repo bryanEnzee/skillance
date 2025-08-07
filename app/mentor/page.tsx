@@ -22,7 +22,7 @@ const mentors = [
     company: "Meta",
     rating: 4.9,
     reviews: 127,
-    hourlyRate: 150,
+    hourlyRate: 0.002, // ETH - Higher rate for senior developer
     expertise: ["React", "Node.js", "System Design"],
     avatar: "/placeholder.svg?height=64&width=64",
     available: true,
@@ -35,7 +35,7 @@ const mentors = [
     company: "OpenAI",
     rating: 4.8,
     reviews: 89,
-    hourlyRate: 200,
+    hourlyRate: 0.003, // ETH - Premium rate for AI specialist
     expertise: ["Python", "TensorFlow", "Deep Learning"],
     avatar: "/placeholder.svg?height=64&width=64",
     available: true,
@@ -48,7 +48,7 @@ const mentors = [
     company: "Stripe",
     rating: 4.9,
     reviews: 156,
-    hourlyRate: 120,
+    hourlyRate: 0.001, // ETH - Standard rate
     expertise: ["Product Strategy", "User Research", "Analytics"],
     avatar: "/placeholder.svg?height=64&width=64",
     available: false,
@@ -187,7 +187,7 @@ export default function MentorPage() {
                           </div>
                           <div className="flex items-center space-x-2">
                             <DollarSign className="h-4 w-4 text-green-400" />
-                            <span className="text-white font-medium">${mentor.hourlyRate}/hour</span>
+                            <span className="text-white font-medium">{mentor.hourlyRate} ETH/hour</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <Users className="h-4 w-4 text-purple-400" />

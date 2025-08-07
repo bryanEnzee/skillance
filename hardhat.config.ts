@@ -32,5 +32,10 @@ module.exports = {
       chainId: 421614,
       accounts: [process.env.PAYMENT_PRIVATE_KEY],
     },
+    arbitrum: {
+      url: `https://arbitrum-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      chainId: 42161,
+      accounts: [process.env.PAYMENT_PRIVATE_KEY],
+    },
   },
 };
