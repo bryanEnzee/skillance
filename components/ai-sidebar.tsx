@@ -49,6 +49,7 @@ export default function AISidebar() {
   const [isPaying, setIsPaying] = useState(false)
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const [payError, setPayError] = useState<string | null>(null)
+  const [justPaid, setJustPaid] = useState(false)
 
   // Version dropdown
   const [showVersionDropdown, setShowVersionDropdown] = useState(false)
@@ -78,26 +79,16 @@ export default function AISidebar() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Show paywall if needed
-  useEffect(() => {
-    const userMessages = messages.filter(m => m.role === "user").length
-    if (userMessages >= FREE_CHAT_LIMIT && paidChats < (userMessages - FREE_CHAT_LIMIT + 1)) {
-      setShowPaywall(true)
-    } else {
-      setShowPaywall(false)
-    }
-  }, [messages, paidChats])
-
-  // Main send message logic
   const handleSendMessage = () => {
     const messageToSend = newMessage.trim();
     if (!messageToSend) return;
 
-    const userMessages = messages.filter(m => m.role === "user").length;
-    if (userMessages >= FREE_CHAT_LIMIT && paidChats < (userMessages - FREE_CHAT_LIMIT + 1)) {
-      setShowPaywall(true);
+    const userMessages = messages.filter((m) => m.role === "user").length;
+    const allowed = userMessages < FREE_CHAT_LIMIT || paidChats >= (userMessages - FREE_CHAT_LIMIT + 1);
+    if (!allowed) {
       setPendingMessage(messageToSend);
       setNewMessage("");
+      setShowPaywall(true);
       setPayError(null);
       return;
     }
@@ -107,8 +98,15 @@ export default function AISidebar() {
     displayAndFetchAIResponse(messageToSend);
   }
 
-  // Helper to show message and fetch response
-  const displayAndFetchAIResponse = async (userMessage: string) => {
+  const displayAndFetchAIResponse = async (userMessage: string, force = false) => {
+    if (!force) {
+      const userMessages = messages.filter((m) => m.role === "user").length
+      const allowed = userMessages < FREE_CHAT_LIMIT || paidChats >= (userMessages - FREE_CHAT_LIMIT + 1)
+      if (!allowed) {
+        console.warn("Blocked due to paywall")
+        return
+      }
+    }
     setMessages((prev) => [...prev, { role: "user", content: userMessage }])
     setIsTyping(true)
 
@@ -151,9 +149,9 @@ export default function AISidebar() {
         else msg = JSON.stringify(error);
       }
       setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "I apologize, but I encountered an error while processing your request. " + msg },
-      ])
+          ...prev,
+          { role: "assistant", content: "I apologize, but I encountered an error while processing your request. " + msg },
+        ])
     } finally {
       setIsTyping(false)
     }
@@ -186,6 +184,7 @@ export default function AISidebar() {
       // Only after payment, show/send the message and fetch AI response
       if (pendingMessage) {
         displayAndFetchAIResponse(pendingMessage);
+        setPendingMessage(null);
       }
       setPendingMessage(null);
       setPayError(null);
