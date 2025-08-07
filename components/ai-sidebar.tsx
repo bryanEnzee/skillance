@@ -19,7 +19,6 @@ const USDC_ABI = [
 const PAYMENT_AMOUNT = "0.005";
 const FREE_CHAT_LIMIT = 5;
 
-// Dummy sessions for dropdown (replace with real data or logic)
 const VERSIONS = [
   { id: "1", name: "Session 1", date: "2024-07-01" },
   { id: "2", name: "Session 2", date: "2024-07-10" },
@@ -55,6 +54,22 @@ export default function AISidebar() {
   const [showVersionDropdown, setShowVersionDropdown] = useState(false)
   const isResizing = useRef(false)
 
+  // --- WALLET ADDRESS STATE ---
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+
+  // Detect wallet on load
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).ethereum) {
+      (window as any).ethereum.request({ method: "eth_accounts" }).then((accounts: string[]) => {
+        if (accounts[0]) setWalletAddress(accounts[0]);
+      });
+      // Optional: Listen for account change
+      (window as any).ethereum.on && (window as any).ethereum.on("accountsChanged", (accounts: string[]) => {
+        setWalletAddress(accounts[0] || null);
+      });
+    }
+  }, []);
+
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault()
     isResizing.current = true
@@ -74,7 +89,6 @@ export default function AISidebar() {
     document.removeEventListener('mouseup', stopResizing)
   }
 
-  // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
@@ -98,14 +112,32 @@ export default function AISidebar() {
     displayAndFetchAIResponse(messageToSend);
   }
 
+  // --- STORE CHATLOG TO FASTAPI ---
+  const storeChatLog = async (user: string, question: string, answer: string) => {
+    if (!user) return; // Do not store if wallet is missing
+    try {
+      // You may need to change this URL depending on deployment!
+      await fetch("http://localhost:8000/store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user,
+          question,
+          answer,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to store chatlog", err);
+    }
+  }
+
+  // --- AI RESPONSE HANDLER + STORE LOG ---
   const displayAndFetchAIResponse = async (userMessage: string, force = false) => {
-    if (!force) {
-      const userMessages = messages.filter((m) => m.role === "user").length
-      const allowed = userMessages < FREE_CHAT_LIMIT || paidChats >= (userMessages - FREE_CHAT_LIMIT + 1)
-      if (!allowed) {
-        console.warn("Blocked due to paywall")
-        return
-      }
+    const userMessages = messages.filter((m) => m.role === "user").length
+    const allowed = userMessages < FREE_CHAT_LIMIT || paidChats >= (userMessages - FREE_CHAT_LIMIT + 1)
+    if (!force && !allowed) {
+      console.warn("Blocked due to paywall")
+      return
     }
     setMessages((prev) => [...prev, { role: "user", content: userMessage }])
     setIsTyping(true)
@@ -139,6 +171,10 @@ export default function AISidebar() {
           }
           return newMessages
         })
+      }
+      // --- Only after fully received, store the chatlog ---
+      if (walletAddress && streamedContent.trim()) {
+        storeChatLog(walletAddress, userMessage, streamedContent);
       }
     } catch (error) {
       let msg = "Unknown error";
@@ -201,16 +237,13 @@ export default function AISidebar() {
     setIsPaying(false);
   };
 
-  // Optionally allow user to close paywall and restore message to input
   const handleClosePaywall = () => {
     setShowPaywall(false);
     if (pendingMessage) {
       setNewMessage(pendingMessage);
     }
-    // Do not clear pendingMessage; they might want to retry
   };
 
-  // Version dropdown as component
   function VersionDropdown() {
     return (
       <div className="relative">
@@ -234,7 +267,7 @@ export default function AISidebar() {
                 key={ver.id}
                 onClick={() => {
                   setShowVersionDropdown(false);
-                  alert(`Switch to version: ${ver.name}`); // Replace with real version select logic
+                  alert(`Switch to version: ${ver.name}`);
                 }}
                 className="flex flex-col w-full px-4 py-3 text-left hover:bg-purple-100/80 transition"
               >
@@ -267,7 +300,6 @@ export default function AISidebar() {
                 <span className="font-semibold">Pay $0.005 USDC</span> to send <b>1 more message</b>.<br />
                 (Repeat payment for every extra message.)
               </p>
-              {/* Show the blocked message, if any */}
               {pendingMessage && (
                 <div className="w-full bg-purple-50 rounded p-2 mb-2 text-gray-700 text-xs border border-purple-100">
                   <b>Your message:</b> <br />
@@ -335,12 +367,10 @@ export default function AISidebar() {
           className="absolute left-0 top-0 h-full w-2 cursor-ew-resize z-50 bg-transparent"
         />
         <div className={styles.aiSidebarDivider} />
-        
+
         {/* Rectangle Version/New Chat buttons, floating top right */}
         <div className="absolute top-4 right-4 flex flex-row gap-2 z-50">
-          {/* Version Dropdown */}
           <VersionDropdown />
-          {/* New Chat Button */}
           <Button
             onClick={() => {
               setMessages([
@@ -363,7 +393,7 @@ export default function AISidebar() {
             <span className="whitespace-nowrap">New Chat</span>
           </Button>
         </div>
-        
+
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center space-x-3 p-4 border-b border-white/10">
@@ -371,6 +401,10 @@ export default function AISidebar() {
             <div>
               <h3 className="text-white font-light text-lg">AI Assistant</h3>
               <p className="text-gray-400 text-sm font-light">Your Web3 Learning Guide</p>
+              {/* Show wallet address (for demo/debug) */}
+              <p className="text-purple-300 text-xs mt-1">
+                {walletAddress ? `Wallet: ${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}` : "No wallet detected"}
+              </p>
             </div>
           </div>
           {/* Messages */}
@@ -488,7 +522,6 @@ export default function AISidebar() {
                 </Button>
               </motion.div>
             </div>
-            {/* Show message limit */}
             <div className="text-xs text-purple-300 mt-1 text-center">
               {messages.filter(m => m.role === "user").length < FREE_CHAT_LIMIT
                 ? `Free messages left: ${Math.max(0, FREE_CHAT_LIMIT - messages.filter(m => m.role === "user").length)}`
