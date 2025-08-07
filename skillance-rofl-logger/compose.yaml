@@ -1,0 +1,10 @@
+services:
+  logger:
+    build: .
+    image: docker.io/eronael/skillance-logger:latest
+    platform: linux/amd64
+    volumes:
+      - my-volume:/app/logs
+
+volumes:
+  my-volume:
