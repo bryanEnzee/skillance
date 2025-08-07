@@ -12,58 +12,99 @@ import Navigation from "@/components/navigation"
 import AIChat from "@/components/ai-chat"
 import MyActivitiesButton from "@/components/my-activities-button"
 
-const jobs = [
-  {
-    id: 1,
-    title: "React Developer for E-commerce Platform",
-    company: "TechStart Inc.",
-    budget: "$3,000 - $5,000",
-    duration: "2-3 months",
-    posted: "2 hours ago",
-    applicants: 12,
-    skills: ["React", "TypeScript", "Node.js", "MongoDB"],
-    description: "We're looking for an experienced React developer to build a modern e-commerce platform...",
-    stakeRequired: 100,
-    rating: 4.8,
-    urgent: false,
-  },
-  {
-    id: 2,
-    title: "AI/ML Model Development",
-    company: "DataCorp",
-    budget: "$8,000 - $12,000",
-    duration: "3-4 months",
-    posted: "1 day ago",
-    applicants: 8,
-    skills: ["Python", "TensorFlow", "PyTorch", "Data Science"],
-    description: "Develop and deploy machine learning models for predictive analytics...",
-    stakeRequired: 200,
-    rating: 4.9,
-    urgent: true,
-  },
-  {
-    id: 3,
-    title: "Mobile App UI/UX Design",
-    company: "Creative Studio",
-    budget: "$2,000 - $3,500",
-    duration: "1-2 months",
-    posted: "3 days ago",
-    applicants: 15,
-    skills: ["Figma", "UI/UX", "Mobile Design", "Prototyping"],
-    description: "Design a beautiful and intuitive mobile app interface for our fitness platform...",
-    stakeRequired: 75,
-    rating: 4.7,
-    urgent: false,
-  },
-]
+import { useEffect } from "react";
+import { getFreelanceJobsContract } from "@/lib/contract";
+import { ethers } from "ethers";
+
+
+// const [jobs, setJobs] = useState<any[]>([]);
+// const [loading, setLoading] = useState(true);
+
+// useEffect(() => {
+//   const fetchJobs = async () => {
+//     try {
+//       await window.ethereum.request({ method: "eth_requestAccounts" });
+//       const contract = getFreelanceJobsContract();
+//       const totalJobs = await contract.getTotalJobs();
+//       const jobCount = Number(totalJobs);
+
+//       const jobsData = [];
+//       for (let i = 0; i < jobCount; i++) {
+//         const job = await contract.getJob(i);
+//         jobsData.push({
+//           id: i,
+//           title: job.title,
+//           company: "N/A", // bisa dikembangkan
+//           budget: `$${ethers.utils.formatEther(job.budgetMin)} - $${ethers.utils.formatEther(job.budgetMax)}`,
+//           duration: `${job.duration} days`,
+//           posted: "Just now", // bisa diatur dari timestamp
+//           applicants: job.applicants.toNumber?.() || 0,
+//           skills: JSON.parse(job.skills || "[]"),
+//           description: job.description,
+//           stakeRequired: Number(ethers.utils.formatEther(job.stake)),
+//           rating: 4.8,
+//           urgent: job.isUrgent,
+//         });
+//       }
+
+//       setJobs(jobsData);
+//       setLoading(false);
+//     } catch (error) {
+//       console.error("Failed to fetch jobs from contract:", error);
+//     }
+//   };
+
+//   fetchJobs();
+// }, []);
+
 
 export default function FreelancePage() {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("")
+
+  useEffect(() => {
+  const fetchJobs = async () => {
+    try {
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+      const contract = getFreelanceJobsContract();
+      const totalJobs = await contract.getTotalJobs();
+      const jobCount = Number(totalJobs);
+
+      const jobsData = [];
+      for (let i = 0; i < jobCount; i++) {
+        const job = await contract.getJob(i);
+        jobsData.push({
+          id: i,
+          title: job.title,
+          company: "N/A", 
+          budget: `$${ethers.utils.formatEther(job.budgetMin)} - $${ethers.utils.formatEther(job.budgetMax)}`,
+          duration: `${job.duration} days`,
+          posted: "Just now", 
+          applicants: job.applicants.toNumber?.() || 0,
+          skills: JSON.parse(job.skills || "[]"),
+          description: job.description,
+          stakeRequired: Number(ethers.utils.formatEther(job.stake)),
+          rating: 4.8,
+          urgent: job.isUrgent,
+        });
+      }
+
+      setJobs(jobsData);
+      setLoading(false);
+    } catch (error) {
+      console.error("Failed to fetch jobs from contract:", error);
+    }
+  };
+
+  fetchJobs();
+}, []);
+  
 
   const filteredJobs = jobs.filter(
     (job) =>
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.skills.some((skill) => skill.toLowerCase().includes(searchQuery.toLowerCase())),
+      job.skills.some((skill: string) => skill.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
   const handleJobRecommendation = (jobId: number) => {
@@ -204,7 +245,7 @@ export default function FreelancePage() {
                       <p className="text-gray-400 mb-6 line-clamp-2 font-light leading-relaxed">{job.description}</p>
 
                       <div className="flex flex-wrap gap-2 mb-6">
-                        {job.skills.map((skill) => (
+                        {job.skills.map((skill: string) => (
                           <Badge
                             key={skill}
                             variant="secondary"

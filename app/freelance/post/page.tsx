@@ -13,6 +13,9 @@ import { ArrowLeft, Plus, X, DollarSign, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import Navigation from "@/components/navigation"
+import { ethers } from "ethers";
+import { getFreelanceJobsContract } from "@/lib/contract"
+
 
 export default function PostJobPage() {
   const [formData, setFormData] = useState({
@@ -21,7 +24,7 @@ export default function PostJobPage() {
     budget: "",
     duration: "",
     skills: [] as string[],
-    stakeRequired: 100,
+    stakeRequired: 0.025,
   })
   const [newSkill, setNewSkill] = useState("")
   const [isPosting, setIsPosting] = useState(false)
@@ -44,14 +47,53 @@ export default function PostJobPage() {
     })
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsPosting(true)
-    // Simulate posting process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsPosting(false)
-    setIsPosted(true)
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault()
+  //   setIsPosting(true)
+  //   // Simulate posting process
+  //   await new Promise((resolve) => setTimeout(resolve, 2000))
+  //   setIsPosting(false)
+  //   setIsPosted(true)
+  // }
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsPosting(true);
+
+  try {
+    const contract = getFreelanceJobsContract();
+    
+    // Convert values from form data to the correct format
+    const budgetInWei = ethers.utils.parseEther(formData.budget);
+    const stakeRequiredInWei = ethers.utils.parseEther(formData.stakeRequired.toString());
+    const postingFee = "0.005"; 
+
+    const tx = await contract.postJob(
+        formData.title,
+        formData.description,
+        JSON.stringify(formData.skills),
+        budgetInWei,
+        Number(formData.duration),
+        stakeRequiredInWei,
+        { value: ethers.utils.parseEther(postingFee) } // Sending the posting fee with the transaction
+    );
+
+    await tx.wait();
+    setIsPosted(true);
+  } catch (error: any) {
+      console.error("Failed to post job:", error);
+      let message = "Something went wrong while posting the job.";
+      if (error?.reason) {
+        message += ` Reason: ${error.reason}`;
+      } else if (error?.data?.message) {
+        message += ` Message: ${error.data.message}`;
+      } else if (error?.message) {
+        message += ` Message: ${error.message}`;
+      }
+      alert(message);
+  } finally {
+      setIsPosting(false);
   }
+};
 
   if (isPosted) {
     return (
@@ -178,13 +220,13 @@ export default function PostJobPage() {
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="budget" className="text-white font-light">
-                        Budget Range
+                        Budget 
                       </Label>
                       <Input
                         id="budget"
                         value={formData.budget}
                         onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                        placeholder="e.g., $3,000 - $5,000"
+                        placeholder="ETH"
                         className="bg-white/5 border-white/10 text-white placeholder-gray-400 font-light backdrop-blur-sm focus:bg-white/10 transition-all duration-300"
                         required
                       />
@@ -197,7 +239,7 @@ export default function PostJobPage() {
                         id="duration"
                         value={formData.duration}
                         onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                        placeholder="e.g., 2-3 months"
+                        placeholder="In days"
                         className="bg-white/5 border-white/10 text-white placeholder-gray-400 font-light backdrop-blur-sm focus:bg-white/10 transition-all duration-300"
                         required
                       />
@@ -260,7 +302,6 @@ export default function PostJobPage() {
                       Application Stake Requirement
                     </Label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
                         id="stake"
                         type="number"
@@ -290,7 +331,7 @@ export default function PostJobPage() {
                       </p>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-300 font-light">Posting Fee:</span>
-                        <span className="text-green-400 font-semibold text-xl">$25</span>
+                        <span className="text-green-400 font-semibold text-xl">0.005 ETH</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -312,7 +353,7 @@ export default function PostJobPage() {
                           <span>Processing Payment & Posting...</span>
                         </div>
                       ) : (
-                        "Post Job & Pay $25"
+                        "Post Job & Pay 0.005 ETH"
                       )}
                     </Button>
                   </motion.div>
