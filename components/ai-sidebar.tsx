@@ -1,14 +1,18 @@
-"use client"
+"use client";
 
-import React, { useState, useRef, useEffect } from "react"
-import { Bot, Send, ChevronLeft, ChevronRight, GripVertical, Plus, Clock, ChevronDown } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
-import styles from './ai-sidebar.module.css'
-import { useSidebarStore } from "@/store/sidebar-store"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import ReactMarkdown from 'react-markdown'
-import { ethers } from "ethers"
+import React, { useState, useRef, useEffect } from "react";
+import { Bot, Send, ChevronLeft, ChevronRight, GripVertical, Plus, Clock, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import styles from './ai-sidebar.module.css';
+import { useSidebarStore } from "@/store/sidebar-store";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import ReactMarkdown from 'react-markdown';
+import { ethers } from "ethers";
+import dynamic from "next/dynamic";
+
+// Dynamically import RoadmapGraph to avoid SSR issues
+const RoadmapGraph = dynamic(() => import("@/components/RoadmapGraph"), { ssr: false });
 
 const USDC_ADDRESS = "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d";
 const RECEIVER_ADDRESS = "0x29E5D2d96Ee66C35c16075558A2A66a529Ef284F";
@@ -26,36 +30,41 @@ const VERSIONS = [
 ];
 
 interface Message {
-  role: "user" | "assistant"
-  content: string
+  role: "user" | "assistant";
+  content: string;
 }
 
 export default function AISidebar() {
-  const { width, isOpen, setIsOpen, setWidth, minWidth, maxWidth } = useSidebarStore()
+  const { width, isOpen, setIsOpen, setWidth } = useSidebarStore();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
       content: "Hi! I'm your AI assistant. How can I help you learn about Web3 and blockchain development?",
     },
-  ])
-  const [newMessage, setNewMessage] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  ]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Payment & paywall logic
-  const [paidChats, setPaidChats] = useState(0)
-  const [showPaywall, setShowPaywall] = useState(false)
-  const [isPaying, setIsPaying] = useState(false)
-  const [pendingMessage, setPendingMessage] = useState<string | null>(null)
-  const [payError, setPayError] = useState<string | null>(null)
-  const [justPaid, setJustPaid] = useState(false)
+  const [paidChats, setPaidChats] = useState(0);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
 
   // Version dropdown
-  const [showVersionDropdown, setShowVersionDropdown] = useState(false)
-  const isResizing = useRef(false)
+  const [showVersionDropdown, setShowVersionDropdown] = useState(false);
+  const isResizing = useRef(false);
 
-  // --- WALLET ADDRESS STATE ---
+  // WALLET ADDRESS STATE
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+
+  // Roadmap Modal state
+  const [roadmapModalOpen, setRoadmapModalOpen] = useState(false);
+  const [graphData, setGraphData] = useState<{ nodes: any[]; edges: any[] } | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
+  const [graphError, setGraphError] = useState<string | null>(null);
 
   // Detect wallet on load
   useEffect(() => {
@@ -63,7 +72,7 @@ export default function AISidebar() {
       (window as any).ethereum.request({ method: "eth_accounts" }).then((accounts: string[]) => {
         if (accounts[0]) setWalletAddress(accounts[0]);
       });
-      // Optional: Listen for account change
+      // Listen for account change
       (window as any).ethereum.on && (window as any).ethereum.on("accountsChanged", (accounts: string[]) => {
         setWalletAddress(accounts[0] || null);
       });
@@ -71,27 +80,27 @@ export default function AISidebar() {
   }, []);
 
   const startResizing = (e: React.MouseEvent) => {
-    e.preventDefault()
-    isResizing.current = true
-    document.addEventListener('mousemove', handleResize)
-    document.addEventListener('mouseup', stopResizing)
-  }
+    e.preventDefault();
+    isResizing.current = true;
+    document.addEventListener('mousemove', handleResize);
+    document.addEventListener('mouseup', stopResizing);
+  };
 
   const handleResize = (e: MouseEvent) => {
-    if (!isResizing.current) return
-    const newWidth = window.innerWidth - e.clientX
-    setWidth(newWidth)
-  }
+    if (!isResizing.current) return;
+    const newWidth = window.innerWidth - e.clientX;
+    setWidth(newWidth);
+  };
 
   const stopResizing = () => {
-    isResizing.current = false
-    document.removeEventListener('mousemove', handleResize)
-    document.removeEventListener('mouseup', stopResizing)
-  }
+    isResizing.current = false;
+    document.removeEventListener('mousemove', handleResize);
+    document.removeEventListener('mouseup', stopResizing);
+  };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleSendMessage = () => {
     const messageToSend = newMessage.trim();
@@ -110,37 +119,32 @@ export default function AISidebar() {
     setNewMessage("");
     setPendingMessage(null);
     displayAndFetchAIResponse(messageToSend);
-  }
+  };
 
-  // --- STORE CHATLOG TO FASTAPI ---
+  // STORE CHATLOG TO FASTAPI
   const storeChatLog = async (user: string, question: string, answer: string) => {
-    if (!user) return; // Do not store if wallet is missing
+    if (!user) return;
     try {
-      // You may need to change this URL depending on deployment!
       await fetch("http://localhost:8000/store", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user,
-          question,
-          answer,
-        }),
+        body: JSON.stringify({ user, question, answer }),
       });
     } catch (err) {
       console.error("Failed to store chatlog", err);
     }
-  }
+  };
 
-  // --- AI RESPONSE HANDLER + STORE LOG ---
+  // AI RESPONSE HANDLER + STORE LOG
   const displayAndFetchAIResponse = async (userMessage: string, force = false) => {
-    const userMessages = messages.filter((m) => m.role === "user").length
-    const allowed = userMessages < FREE_CHAT_LIMIT || paidChats >= (userMessages - FREE_CHAT_LIMIT + 1)
+    const userMessages = messages.filter((m) => m.role === "user").length;
+    const allowed = userMessages < FREE_CHAT_LIMIT || paidChats >= (userMessages - FREE_CHAT_LIMIT + 1);
     if (!force && !allowed) {
-      console.warn("Blocked due to paywall")
-      return
+      console.warn("Blocked due to paywall");
+      return;
     }
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }])
-    setIsTyping(true)
+    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setIsTyping(true);
 
     try {
       const response = await fetch('/api/ai', {
@@ -150,29 +154,29 @@ export default function AISidebar() {
           mode: 'chat',
           question: userMessage
         }),
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to get AI response')
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }])
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-      let streamedContent = ""
+      if (!response.ok) throw new Error('Failed to get AI response');
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let streamedContent = "";
 
       while (reader) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value)
-        streamedContent += chunk
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        streamedContent += chunk;
         setMessages((prev) => {
-          const newMessages = [...prev]
+          const newMessages = [...prev];
           newMessages[newMessages.length - 1] = {
             role: "assistant",
             content: streamedContent
-          }
-          return newMessages
-        })
+          };
+          return newMessages;
+        });
       }
-      // --- Only after fully received, store the chatlog ---
+      // After fully received, store the chatlog
       if (walletAddress && streamedContent.trim()) {
         storeChatLog(walletAddress, userMessage, streamedContent);
       }
@@ -185,20 +189,20 @@ export default function AISidebar() {
         else msg = JSON.stringify(error);
       }
       setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: "I apologize, but I encountered an error while processing your request. " + msg },
-        ])
+        ...prev,
+        { role: "assistant", content: "I apologize, but I encountered an error while processing your request. " + msg },
+      ]);
     } finally {
-      setIsTyping(false)
+      setIsTyping(false);
     }
-  }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+      e.preventDefault();
+      handleSendMessage();
     }
-  }
+  };
 
   // Payment handler
   const handlePay = async () => {
@@ -242,6 +246,53 @@ export default function AISidebar() {
     if (pendingMessage) {
       setNewMessage(pendingMessage);
     }
+  };
+
+  // VISUAL ROADMAP GENERATOR
+  const handleVisualizeRoadmap = async () => {
+    setRoadmapModalOpen(true);
+    setGraphLoading(true);
+    setGraphData(null);
+    setGraphError(null);
+    try {
+      // Use last user message or default to "Web3 Developer"
+      let topic = "";
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === "user") {
+          topic = messages[i].content;
+          break;
+        }
+      }
+      if (!topic) topic = "Web3 Developer";
+
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "generateGraphRoadmap",
+          question: topic,
+        }),
+      });
+      const text = await response.text();
+      // Try to parse out JSON (in case AI adds extra newlines or junk)
+      let jsonStr = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
+      let graph = null;
+      try {
+        graph = JSON.parse(jsonStr);
+      } catch {
+        setGraphError("Could not parse roadmap from AI.");
+        setGraphLoading(false);
+        return;
+      }
+      if (graph?.nodes && graph?.edges) {
+        setGraphData(graph);
+      } else {
+        setGraphError("AI response did not include a roadmap.");
+      }
+    } catch (err) {
+      setGraphError("Failed to generate visual roadmap.");
+    }
+    setGraphLoading(false);
   };
 
   function VersionDropdown() {
@@ -333,7 +384,7 @@ export default function AISidebar() {
               </Button>
               <p className="text-gray-400 text-xs mt-2 text-center">
                 Transaction on Arbitrum Sepolia. Your wallet will ask for confirmation.<br />
-                <span className="text-purple-400">Receiver: {RECEIVER_ADDRESS.slice(0,6)}...{RECEIVER_ADDRESS.slice(-4)}</span>
+                <span className="text-purple-400">Receiver: {RECEIVER_ADDRESS.slice(0, 6)}...{RECEIVER_ADDRESS.slice(-4)}</span>
               </p>
               {payError && (
                 <div className="text-red-500 text-xs mt-2 text-center">{payError}</div>
@@ -342,6 +393,59 @@ export default function AISidebar() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Roadmap Modal */}
+      <AnimatePresence>
+  {roadmapModalOpen && (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-sm"
+    >
+      <div className="
+  relative
+  bg-white/15
+  rounded-2xl
+  border border-purple-300/40
+  shadow-2xl
+  p-6 md:p-8
+  max-w-4xl w-[94vw]
+  flex flex-col items-center
+  backdrop-blur-[16px]
+  before:content-['']
+  before:absolute before:inset-0
+  before:rounded-2xl
+  before:pointer-events-none
+  before:bg-gradient-to-br before:from-white/35 before:via-white/10 before:to-purple-200/10
+  before:opacity-70
+  after:content-['']
+  after:absolute after:inset-0
+  after:rounded-2xl
+  after:pointer-events-none
+  after:ring-1 after:ring-white/40
+">
+        <button
+          className="absolute top-3 right-3 text-purple-300 hover:text-pink-400 transition"
+          onClick={() => setRoadmapModalOpen(false)}
+        >
+          <span className="text-2xl">&times;</span>
+        </button>
+        <h2 className="text-xl font-bold mb-5 text-purple-200 flex items-center gap-2">
+          <span role="img" aria-label="roadmap">🗺️</span> Visual Learning Roadmap
+        </h2>
+        {graphLoading ? (
+          <div className="text-center text-purple-400 font-medium">Generating roadmap...</div>
+        ) : graphError ? (
+          <div className="text-center text-pink-400 font-medium">{graphError}</div>
+        ) : graphData ? (
+          <RoadmapGraph nodes={graphData.nodes} edges={graphData.edges} />
+        ) : null}
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
 
       {/* Sidebar Toggle */}
       <motion.button
@@ -403,7 +507,7 @@ export default function AISidebar() {
               <p className="text-gray-400 text-sm font-light">Your Web3 Learning Guide</p>
               {/* Show wallet address (for demo/debug) */}
               <p className="text-purple-300 text-xs mt-1">
-                {walletAddress ? `Wallet: ${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}` : "No wallet detected"}
+                {walletAddress ? `Wallet: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : "No wallet detected"}
               </p>
             </div>
           </div>
@@ -430,31 +534,31 @@ export default function AISidebar() {
                     ) : (
                       <ReactMarkdown
                         components={{
-                          h2: ({children}) => (
+                          h2: ({ children }) => (
                             <h2 className="text-xl font-semibold mt-6 mb-3 text-purple-300 border-b border-purple-500/20 pb-2">{children}</h2>
                           ),
-                          h3: ({children}) => (
+                          h3: ({ children }) => (
                             <h3 className="text-lg font-medium mt-4 mb-2 text-pink-300">{children}</h3>
                           ),
-                          p: ({children}) => (
+                          p: ({ children }) => (
                             <p className="mb-3 leading-relaxed">{children}</p>
                           ),
-                          ul: ({children}) => (
+                          ul: ({ children }) => (
                             <ul className="list-none space-y-2 mb-4">{children}</ul>
                           ),
-                          ol: ({children}) => (
+                          ol: ({ children }) => (
                             <ol className="list-decimal pl-4 mb-4 space-y-2">{children}</ol>
                           ),
-                          li: ({children}) => (
+                          li: ({ children }) => (
                             <li className="flex items-start space-x-2">
                               <span className="text-purple-400 mt-1">•</span>
                               <span>{children}</span>
                             </li>
                           ),
-                          code: ({children}) => (
+                          code: ({ children }) => (
                             <code className="bg-purple-500/10 text-purple-300 rounded px-1.5 py-0.5 font-mono text-sm">{children}</code>
                           ),
-                          blockquote: ({children}) => (
+                          blockquote: ({ children }) => (
                             <blockquote className="border-l-2 border-purple-500/50 pl-4 my-4 text-purple-200 italic">{children}</blockquote>
                           ),
                           hr: () => (
@@ -499,7 +603,7 @@ export default function AISidebar() {
             </AnimatePresence>
             <div ref={messagesEndRef} />
           </div>
-          {/* Input */}
+          {/* Input + Visualize Roadmap Button */}
           <div className="p-4 border-t border-white/10">
             <div className="flex space-x-2">
               <Input
@@ -521,6 +625,17 @@ export default function AISidebar() {
                   <Send className="h-4 w-4" />
                 </Button>
               </motion.div>
+              {/* Visualize Roadmap Button */}
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  onClick={handleVisualizeRoadmap}
+                  className="bg-purple-600 text-white font-semibold px-3"
+                  disabled={graphLoading}
+                  title="Generate Visual Roadmap"
+                >
+                  🗺️
+                </Button>
+              </motion.div>
             </div>
             <div className="text-xs text-purple-300 mt-1 text-center">
               {messages.filter(m => m.role === "user").length < FREE_CHAT_LIMIT
@@ -531,5 +646,5 @@ export default function AISidebar() {
         </div>
       </motion.div>
     </>
-  )
+  );
 }

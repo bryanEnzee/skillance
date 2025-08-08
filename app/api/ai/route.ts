@@ -26,6 +26,38 @@ export async function POST(req: Request) {
         prompt = `This is the original Web3 roadmap:\n${JSON.stringify(userProfile.roadmap, null, 2)}\nThe user has progressed through:\n${JSON.stringify(progress, null, 2)}\nAdjust the roadmap to reflect current state and recommend the next 3 learning goals.`;
         break;
 
+      case 'generateGraphRoadmap':
+  prompt = `
+You are an expert mentor for Web3, blockchain, and programming careers.
+
+**Task:** Generate a personalized learning roadmap as a JSON node-edge graph for the following request:
+
+"${question}"
+
+**Instructions:**
+- Analyze the user's request. Determine their domain and intent. STRICTLY focus ONLY on their target field (e.g., if the prompt is about business development or product management, OMIT coding/developer steps unless requested).
+- Each node is a practical learning step, with id, label, icon (emoji), short description, and level ("beginner", "intermediate", "advanced").
+- Roadmap may be linear or include parallel branches if the topic requires it.
+- For advanced users, skip basics and go deep into strategy, best practices, frameworks, or domain-specific advanced topics.
+- **Do not include generic steps or unrelated areas.**
+- For non-technical requests (like BizDev, Product, Community), ONLY include steps relevant to that focus (e.g., partnerships, GTM, analytics, Web3 business tools).
+- Output ONLY valid JSON in this format (no explanations, comments, or text outside the code block):
+
+{
+  "nodes": [
+    { "id": "1", "label": "Step Name", "icon": "💡", "description": "Short summary", "level": "beginner" }
+    ...
+  ],
+  "edges": [
+    { "source": "1", "target": "2" }
+    ...
+  ]
+}
+  `.trim();
+  break;
+
+
+
       case 'chat':
         prompt = `Act as an expert Web3 mentor. When responding, follow these guidelines:
 
@@ -100,7 +132,7 @@ export async function POST(req: Request) {
       async transform(chunk, controller) {
         const text = decoder.decode(chunk);
         const lines = text.split('\n').filter(line => line.trim() !== '');
-        
+
         for (const line of lines) {
           if (line.includes('[DONE]')) return;
           if (line.startsWith('data: ')) {
