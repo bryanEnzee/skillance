@@ -37,6 +37,9 @@ export const MENTOR_BOOKING_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_MENTOR_BOOK
 // Get mentor wallet address from environment variable
 export const MENTOR_WALLET_ADDRESS = process.env.NEXT_PUBLIC_MENTOR_WALLET_ADDRESS;
 
+// Get chat storage contract address from environment variable
+export const CHAT_STORAGE_ADDRESS = process.env.NEXT_PUBLIC_CHAT_STORAGE_ADDRESS || "0xebD0D5D054552d8D77287D0ccFA183c15Bd5E34b";
+
 // Add to the contract ABIs
 export const MENTOR_BOOKING_ESCROW_ABI = [
   {
@@ -82,6 +85,13 @@ export const MENTOR_BOOKING_ESCROW_ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "bookingCount",
+    "outputs": [{ "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "anonymous": false,
     "inputs": [
       { "indexed": true, "type": "uint256", "name": "bookingId" },
@@ -92,6 +102,117 @@ export const MENTOR_BOOKING_ESCROW_ABI = [
       { "indexed": false, "type": "uint256", "name": "amount" }
     ],
     "name": "Booked",
+    "type": "event"
+  }
+];
+
+// ChatStorage ABI for Sapphire
+export const CHAT_STORAGE_ABI = [
+  {
+    "inputs": [
+      { "type": "uint256", "name": "bookingId" },
+      { "type": "address", "name": "user" },
+      { "type": "uint256", "name": "mentorId" }
+    ],
+    "name": "createChatRoom",
+    "outputs": [{ "type": "uint256" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "type": "uint256", "name": "chatRoomId" },
+      { "type": "string", "name": "content" },
+      { "type": "bool", "name": "isFromMentor" }
+    ],
+    "name": "sendMessage",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "type": "address", "name": "user" }],
+    "name": "getChatRoomsForUser",
+    "outputs": [{ "type": "uint256[]" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "type": "uint256", "name": "chatRoomId" }],
+    "name": "getMessagesForChatRoom",
+    "outputs": [{ "type": "uint256[]" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "type": "uint256", "name": "bookingId" }],
+    "name": "getChatRoomByBooking",
+    "outputs": [{ "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "type": "uint256", "name": "" }],
+    "name": "chatRooms",
+    "outputs": [
+      { "type": "uint256", "name": "bookingId" },
+      { "type": "address", "name": "user" },
+      { "type": "uint256", "name": "mentorId" },
+      { "type": "uint256", "name": "createdAt" },
+      { "type": "bool", "name": "active" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "type": "uint256", "name": "chatRoomId" },
+      { "type": "address", "name": "user" }
+    ],
+    "name": "authorizeSender",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "type": "uint256", "name": "chatRoomId" },
+      { "type": "address", "name": "user" }
+    ],
+    "name": "isAuthorized",
+    "outputs": [{ "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "type": "uint256", "name": "chatRoomId" },
+      { "indexed": true, "type": "uint256", "name": "bookingId" },
+      { "indexed": true, "type": "address", "name": "user" },
+      { "indexed": false, "type": "uint256", "name": "mentorId" }
+    ],
+    "name": "ChatRoomCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "type": "uint256", "name": "chatRoomId" },
+      { "indexed": true, "type": "address", "name": "user" }
+    ],
+    "name": "SenderAuthorized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "type": "uint256", "name": "chatRoomId" },
+      { "indexed": true, "type": "uint256", "name": "messageId" },
+      { "indexed": true, "type": "address", "name": "sender" },
+      { "indexed": false, "type": "bool", "name": "isFromMentor" }
+    ],
+    "name": "MessageSent",
     "type": "event"
   }
 ];

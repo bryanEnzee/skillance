@@ -11,7 +11,7 @@ import { motion } from "framer-motion"
 import Navigation from "@/components/navigation"
 import { useRouter, useParams } from "next/navigation"
 import { ethers } from "ethers"
-import { MENTOR_BOOKING_ESCROW_ADDRESS, MENTOR_BOOKING_ESCROW_ABI, MENTOR_WALLET_ADDRESS } from "@/lib/contract"
+import { MENTOR_BOOKING_ESCROW_ADDRESS, MENTOR_BOOKING_ESCROW_ABI, MENTOR_WALLET_ADDRESS, CHAT_STORAGE_ADDRESS, CHAT_STORAGE_ABI } from "@/lib/contract"
 
 // Dynamic mentors with individual schedules and pricing
 const mentors = [
@@ -136,26 +136,37 @@ export default function BookMentorPage() {
   }, [mentor]);
 
   const handleBooking = async () => {
-    if (!selectedDate || !selectedTime) return;
+    console.log('=== BOOKING PROCESS START ===');
+    console.log('Selected date:', selectedDate);
+    console.log('Selected time:', selectedTime);
+    console.log('Mentor:', mentor.name, 'ID:', mentor.id);
+    console.log('CHAT_STORAGE_ADDRESS:', CHAT_STORAGE_ADDRESS);
+    console.log('MENTOR_BOOKING_ESCROW_ADDRESS:', MENTOR_BOOKING_ESCROW_ADDRESS);
+    
+    if (!selectedDate || !selectedTime) {
+      alert('Please select both date and time')
+      return
+    }
 
     setIsBooking(true);
     setError(null);
 
     try {
       // Check if MetaMask is installed
-      if (typeof window.ethereum === 'undefined') {
-        throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
-      }
-
-      // Request account access
+      console.log('Requesting account access...');
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       const userAddress = accounts[0];
+      console.log('User address:', userAddress);
 
       // Create provider and signer
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
 
       // Create contract instance
+      if (!MENTOR_BOOKING_ESCROW_ADDRESS) {
+        throw new Error('Mentor booking contract address not configured');
+      }
+      
       const contract = new ethers.Contract(
         MENTOR_BOOKING_ESCROW_ADDRESS,
         MENTOR_BOOKING_ESCROW_ABI,
@@ -180,13 +191,122 @@ export default function BookMentorPage() {
         });
 
       // Wait for transaction to be mined
+      console.log('Waiting for transaction to be mined...');
       const receipt = await tx.wait();
+      console.log('Transaction receipt:', receipt);
+      console.log('Receipt events:', receipt.events);
 
       // Get the booking ID from the event
       const bookedEvent = receipt.events?.find((event: any) => event.event === 'Booked');
+      console.log('Found Booked event:', bookedEvent);
+      
+      let newBookingId = null;
 
       if (bookedEvent && bookedEvent.args) {
-        setBookingId(bookedEvent.args.bookingId.toNumber());
+        console.log('Event args:', bookedEvent.args);
+        newBookingId = bookedEvent.args.bookingId.toNumber();
+        console.log('Extracted booking ID:', newBookingId);
+        setBookingId(newBookingId);
+      } else {
+        console.log('No Booked event found or no args. Trying alternative extraction...');
+        console.log('Receipt logs length:', receipt.logs ? receipt.logs.length : 'no logs');
+        
+        // Alternative: try to get booking ID from logs
+        if (receipt.logs && receipt.logs.length > 0) {
+          console.log('Transaction logs:', receipt.logs);
+          // Try to parse the first log which should be the Booked event
+          try {
+            const iface = new ethers.utils.Interface(MENTOR_BOOKING_ESCROW_ABI);
+            for (const log of receipt.logs) {
+              console.log('Processing log:', log);
+              try {
+                const parsedLog = iface.parseLog(log);
+                console.log('Parsed log:', parsedLog);
+                if (parsedLog.name === 'Booked') {
+                  newBookingId = parsedLog.args.bookingId.toNumber();
+                  console.log('Extracted booking ID from logs:', newBookingId);
+                  setBookingId(newBookingId);
+                  break;
+                }
+              } catch (parseError) {
+                console.log('Failed to parse log:', parseError);
+              }
+            }
+          } catch (error) {
+            console.log('Error parsing logs:', error);
+          }
+        } else {
+          console.log('No logs found in receipt. Using bookingCount as fallback...');
+          // Fallback: use the current booking count from the contract
+          try {
+            console.log('Contract address:', contract.address);
+            console.log('Current network:', await provider.getNetwork());
+            
+            const currentBookingCount = await contract.bookingCount();
+            newBookingId = currentBookingCount.toNumber();
+            console.log('Using booking count as ID:', newBookingId);
+            setBookingId(newBookingId);
+          } catch (fallbackError) {
+            console.log('Fallback method failed:', fallbackError);
+            
+            // Final fallback: just use a timestamp-based ID
+            console.log('Using timestamp-based fallback ID...');
+            newBookingId = Date.now() % 1000000; // Use last 6 digits of timestamp
+            console.log('Generated fallback booking ID:', newBookingId);
+            setBookingId(newBookingId);
+          }
+        }
+      }
+
+      // Create chatroom on Sapphire after successful booking
+      if (newBookingId && CHAT_STORAGE_ADDRESS) {
+        try {
+          console.log('=== CHATROOM CREATION START ===');
+          console.log('Booking ID:', newBookingId);
+          console.log('User address:', userAddress);
+          console.log('Mentor ID:', mentor.id);
+          console.log('Chat storage address:', CHAT_STORAGE_ADDRESS);
+          
+          // Switch to Sapphire network for chatroom creation
+          console.log('Switching to Sapphire network...');
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x5aff' }], // Sapphire Testnet
+          });
+          console.log('Successfully switched to Sapphire');
+
+          const sapphireProvider = new ethers.providers.Web3Provider(window.ethereum);
+          const sapphireSigner = sapphireProvider.getSigner();
+          const signerAddress = await sapphireSigner.getAddress();
+          console.log('Signer address on Sapphire:', signerAddress);
+          
+          const chatContract = new ethers.Contract(CHAT_STORAGE_ADDRESS, CHAT_STORAGE_ABI, sapphireSigner);
+          console.log('Chat contract created');
+
+          console.log('Creating chatroom with params:', {
+            bookingId: newBookingId,
+            userAddress: userAddress,
+            mentorId: mentor.id
+          });
+          
+          const chatTx = await chatContract.createChatRoom(newBookingId, userAddress, mentor.id);
+          console.log('Transaction sent:', chatTx.hash);
+          
+          const chatReceipt = await chatTx.wait();
+          console.log('Transaction confirmed:', chatReceipt.transactionHash);
+          console.log('=== CHATROOM CREATION SUCCESS ===');
+        } catch (chatError: any) {
+          console.error('=== CHATROOM CREATION FAILED ===');
+          console.error('Error details:', chatError);
+          console.error('Error message:', chatError?.message);
+          console.error('Error code:', chatError?.code);
+          // Don't fail the booking if chatroom creation fails
+        }
+      } else {
+        console.log('Skipping chatroom creation:', {
+          hasBookingId: !!newBookingId,
+          hasChatAddress: !!CHAT_STORAGE_ADDRESS
+        });
       }
 
       setIsBooked(true);
@@ -243,13 +363,13 @@ export default function BookMentorPage() {
                       </Button>
                     </motion.div>
                   </Link>
-                  <Link href={`/mentor/${mentor.id}/chat`}>
+                  <Link href="/chat">
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                       <Button
                         variant="outline"
                         className="w-full border-white/20 text-gray-300 hover:bg-white/10 bg-transparent backdrop-blur-sm font-light"
                       >
-                        Start Chat
+                        Go to Chat
                       </Button>
                     </motion.div>
                   </Link>
