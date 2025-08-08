@@ -1,25 +1,136 @@
 [
   {
-    "inputs": [{ "internalType": "string", "name": "message", "type": "string" }],
-    "name": "storeMessage",
+    "inputs": [
+      {"internalType": "uint256", "name": "bookingId", "type": "uint256"},
+      {"internalType": "address", "name": "user", "type": "address"},
+      {"internalType": "uint256", "name": "mentorId", "type": "uint256"}
+    ],
+    "name": "createChatRoom",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "chatRoomId", "type": "uint256"},
+      {"internalType": "string", "name": "content", "type": "string"},
+      {"internalType": "bool", "name": "isFromMentor", "type": "bool"}
+    ],
+    "name": "sendMessage",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
+    "inputs": [
+      {"internalType": "uint256", "name": "chatRoomId", "type": "uint256"},
+      {"internalType": "address", "name": "user", "type": "address"}
+    ],
+    "name": "authorizeSender",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "user", "type": "address"}],
+    "name": "getChatRoomsForUser",
+    "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256", "name": "chatRoomId", "type": "uint256"}],
+    "name": "getMessagesForChatRoom",
+    "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256", "name": "bookingId", "type": "uint256"}],
+    "name": "getChatRoomByBooking",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "chatRoomId", "type": "uint256"},
+      {"internalType": "address", "name": "user", "type": "address"}
+    ],
+    "name": "isAuthorized",
+    "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
-    "name": "getMessages",
-    "outputs": [{ "internalType": "string[]", "name": "", "type": "string[]" }],
+    "name": "chatRoomCount",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "messageCount",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "name": "chatRooms",
+    "outputs": [
+      {"internalType": "uint256", "name": "bookingId", "type": "uint256"},
+      {"internalType": "address", "name": "user", "type": "address"},
+      {"internalType": "uint256", "name": "mentorId", "type": "uint256"},
+      {"internalType": "uint256", "name": "createdAt", "type": "uint256"},
+      {"internalType": "bool", "name": "active", "type": "bool"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "name": "messages",
+    "outputs": [
+      {"internalType": "uint256", "name": "chatRoomId", "type": "uint256"},
+      {"internalType": "address", "name": "sender", "type": "address"},
+      {"internalType": "string", "name": "content", "type": "string"},
+      {"internalType": "uint256", "name": "timestamp", "type": "uint256"},
+      {"internalType": "bool", "name": "isFromMentor", "type": "bool"}
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "anonymous": false,
     "inputs": [
-      { "indexed": true, "internalType": "address", "name": "user", "type": "address" },
-      { "indexed": false, "internalType": "string", "name": "message", "type": "string" }
+      {"indexed": true, "internalType": "uint256", "name": "chatRoomId", "type": "uint256"},
+      {"indexed": true, "internalType": "uint256", "name": "bookingId", "type": "uint256"},
+      {"indexed": true, "internalType": "address", "name": "user", "type": "address"},
+      {"indexed": false, "internalType": "uint256", "name": "mentorId", "type": "uint256"}
     ],
-    "name": "MessageStored",
+    "name": "ChatRoomCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "uint256", "name": "chatRoomId", "type": "uint256"},
+      {"indexed": true, "internalType": "uint256", "name": "messageId", "type": "uint256"},
+      {"indexed": true, "internalType": "address", "name": "sender", "type": "address"},
+      {"indexed": false, "internalType": "bool", "name": "isFromMentor", "type": "bool"}
+    ],
+    "name": "MessageSent",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "uint256", "name": "chatRoomId", "type": "uint256"},
+      {"indexed": true, "internalType": "address", "name": "user", "type": "address"}
+    ],
+    "name": "SenderAuthorized",
     "type": "event"
   }
 ]

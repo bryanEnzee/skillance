@@ -11,13 +11,11 @@ import dynamic from "next/dynamic"
 import { ethers } from "ethers"
 import { CHAT_STORAGE_ADDRESS, CHAT_STORAGE_ABI } from "@/lib/contract"
 
-// Dynamically import Navigation to avoid SSR issues
 const Navigation = dynamic(() => import("@/components/navigation"), {
   ssr: false,
   loading: () => <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">Loading...</div>
 })
 
-// Mentor data for display
 const mentors = [
   { id: 1, name: "Sarah Chen", title: "Senior Full-Stack Developer", avatar: "/placeholder.svg?height=40&width=40" },
   { id: 2, name: "Marcus Johnson", title: "AI/ML Engineer", avatar: "/placeholder.svg?height=40&width=40" },
@@ -41,7 +39,7 @@ interface Message {
   sender: string
   isFromMentor: boolean
   timestamp: number
-  chatRoomId?: number // Optional for pending messages
+  chatRoomId?: number
 }
 
 export default function ChatPage() {
@@ -54,90 +52,64 @@ export default function ChatPage() {
   const [pendingMessages, setPendingMessages] = useState<Message[]>([])
   const [lastSyncTime, setLastSyncTime] = useState<number>(0)
 
-  // Load user's chatrooms on component mount
   useEffect(() => {
     loadUserChatRooms()
   }, [])
 
+  useEffect(() => {
+    if (selectedChatRoom) {
+      loadLocalMessages(selectedChatRoom.id)
+    }
+  }, [selectedChatRoom])
+
+  useEffect(() => {
+    if (pendingMessages.length === 0) return;
+
+    console.log("⏱ Detected new pending messages:", pendingMessages.length);
+    const timer = setTimeout(() => {
+      syncPendingMessages();
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [pendingMessages])
+
   const loadUserChatRooms = async () => {
     try {
-      console.log('Loading user chatrooms...')
-
-      if (!window.ethereum) {
-        console.log('No ethereum wallet found')
-        setLoading(false)
-        return
-      }
-
-      if (!CHAT_STORAGE_ADDRESS) {
-        console.log('No chat storage address configured')
-        setLoading(false)
-        return
-      }
-
-      console.log('Chat storage address:', CHAT_STORAGE_ADDRESS)
-
-      // Connect to wallet
+      if (!window.ethereum || !CHAT_STORAGE_ADDRESS) return setLoading(false)
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
       const address = accounts[0]
       setUserAddress(address)
-      console.log('User address:', address)
 
-      // Switch to Sapphire network
       try {
         await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0x5aff' }], // Sapphire Testnet
+          params: [{ chainId: '0x5aff' }],
         })
-        console.log('Switched to Sapphire network')
-      } catch (switchError) {
-        console.log('Network switch error (might already be on Sapphire):', switchError)
-      }
+      } catch (switchError) { console.log(switchError) }
 
       const provider = new ethers.providers.Web3Provider(window.ethereum)
       const contract = new ethers.Contract(CHAT_STORAGE_ADDRESS, CHAT_STORAGE_ABI, provider)
 
-      // Get user's chatrooms
-      console.log('Fetching chatrooms for user:', address)
       const chatRoomIds = await contract.getChatRoomsForUser(address)
-      console.log('Found chatroom IDs:', chatRoomIds.map((id: any) => id.toString()))
-
       const rooms: ChatRoom[] = []
 
       for (const roomId of chatRoomIds) {
-        try {
-          console.log('Loading chatroom data for ID:', roomId.toString())
-          const roomData = await contract.chatRooms(roomId)
-          console.log('Room data:', {
-            bookingId: roomData.bookingId.toString(),
-            mentorId: roomData.mentorId.toString(),
-            user: roomData.user,
-            createdAt: roomData.createdAt.toString()
+        const roomData = await contract.chatRooms(roomId)
+        const mentor = mentors.find(m => m.id === roomData.mentorId.toNumber())
+        if (mentor) {
+          rooms.push({
+            id: roomId.toNumber(),
+            bookingId: roomData.bookingId.toNumber(),
+            mentorId: roomData.mentorId.toNumber(),
+            mentorName: mentor.name,
+            mentorTitle: mentor.title,
+            avatar: mentor.avatar,
+            lastMessage: "Chat room created",
+            timestamp: new Date(roomData.createdAt.toNumber() * 1000).toLocaleString()
           })
-
-          const mentor = mentors.find(m => m.id === roomData.mentorId.toNumber())
-
-          if (mentor) {
-            rooms.push({
-              id: roomId.toNumber(),
-              bookingId: roomData.bookingId.toNumber(),
-              mentorId: roomData.mentorId.toNumber(),
-              mentorName: mentor.name,
-              mentorTitle: mentor.title,
-              avatar: mentor.avatar,
-              lastMessage: "Chat room created",
-              timestamp: new Date(roomData.createdAt.toNumber() * 1000).toLocaleString()
-            })
-            console.log('Added chatroom for mentor:', mentor.name)
-          } else {
-            console.log('Mentor not found for ID:', roomData.mentorId.toNumber())
-          }
-        } catch (roomError) {
-          console.error('Error loading room data for ID:', roomId.toString(), roomError)
         }
       }
 
-      console.log('Total chatrooms loaded:', rooms.length)
       setChatRooms(rooms)
     } catch (error) {
       console.error('Error loading chatrooms:', error)
@@ -146,35 +118,10 @@ export default function ChatPage() {
     }
   }
 
-  // Load messages from localStorage for selected chatroom
-  useEffect(() => {
-    if (selectedChatRoom) {
-      loadLocalMessages(selectedChatRoom.id)
-    }
-  }, [selectedChatRoom])
-
-  // Auto-sync pending messages every 2 minutes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (pendingMessages.length > 0) {
-        syncPendingMessages()
-      }
-    }, 120000) // 2 minutes
-
-    return () => clearInterval(interval)
-  }, [pendingMessages])
-
   const loadLocalMessages = (chatRoomId: number) => {
     try {
-      const storageKey = `chat_messages_${chatRoomId}_${userAddress}`
-      const stored = localStorage.getItem(storageKey)
-      if (stored) {
-        const localMessages = JSON.parse(stored)
-        setMessages(localMessages)
-        console.log('Loaded', localMessages.length, 'messages from local storage')
-      } else {
-        setMessages([])
-      }
+      const stored = localStorage.getItem(`chat_messages_${chatRoomId}_${userAddress}`)
+      setMessages(stored ? JSON.parse(stored) : [])
     } catch (error) {
       console.error('Error loading local messages:', error)
       setMessages([])
@@ -189,15 +136,12 @@ export default function ChatPage() {
       messages.push(message)
       localStorage.setItem(storageKey, JSON.stringify(messages))
 
-      // Also add to pending sync queue
       const pendingKey = `pending_messages_${userAddress}`
       const pendingExisting = localStorage.getItem(pendingKey)
-      const pendingMessages = pendingExisting ? JSON.parse(pendingExisting) : []
-      pendingMessages.push({ ...message, chatRoomId })
-      localStorage.setItem(pendingKey, JSON.stringify(pendingMessages))
-      setPendingMessages(pendingMessages)
-
-      console.log('Message saved locally and added to sync queue')
+      const pending = pendingExisting ? JSON.parse(pendingExisting) : []
+      const updated = [...pending, { ...message, chatRoomId }]
+      localStorage.setItem(pendingKey, JSON.stringify(updated))
+      setPendingMessages(updated)
     } catch (error) {
       console.error('Error saving message locally:', error)
     }
@@ -205,8 +149,6 @@ export default function ChatPage() {
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedChatRoom || !userAddress) return
-
-    // Create message object
     const newMsg: Message = {
       id: Date.now(),
       content: newMessage.trim(),
@@ -214,53 +156,43 @@ export default function ChatPage() {
       isFromMentor: false,
       timestamp: Date.now()
     }
-
-    // Immediately add to UI and save locally - NO SIGNATURE REQUIRED!
     setMessages(prev => [...prev, newMsg])
     saveMessageLocally(newMsg, selectedChatRoom.id)
     setNewMessage("")
-
     console.log('💬 Message sent instantly! No signature required.')
-    console.log('📦 Message queued for blockchain sync')
   }
 
   const syncPendingMessages = async () => {
-    if (!userAddress || pendingMessages.length === 0) return
+    if (!userAddress || pendingMessages.length === 0) return;
 
     try {
-      console.log('🔄 Syncing', pendingMessages.length, 'pending messages to Sapphire...')
+      console.log("🔄 Syncing via API...");
 
-      // Switch to Sapphire network
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x5aff' }],
-      })
+      const res = await fetch('/api/chat-storage/syncMessages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: pendingMessages })
+      });
 
-      const provider = new ethers.providers.Web3Provider(window.ethereum)
-      const signer = provider.getSigner()
-      const contract = new ethers.Contract(CHAT_STORAGE_ADDRESS!, CHAT_STORAGE_ABI, signer)
+      if (res.ok) {
+        const data = await res.json();
+        console.log("🧾 Synced transactions:", data.txs);
 
-      // Batch sync messages (one signature for multiple messages)
-      for (const msg of pendingMessages) {
-        try {
-          await contract.sendMessage(msg.chatRoomId, msg.content, false)
-          console.log('✅ Synced message:', msg.content.substring(0, 30) + '...')
-        } catch (error) {
-          console.error('❌ Failed to sync message:', error)
-        }
+        const pendingKey = `pending_messages_${userAddress}`;
+        localStorage.removeItem(pendingKey);
+        setPendingMessages([]);
+        setLastSyncTime(Date.now());
+        console.log("✅ Synced to backend without signature!");
+      } else {
+        const err = await res.json();
+        console.error("❌ Sync API failed:", err);
       }
-
-      // Clear pending messages after successful sync
-      const pendingKey = `pending_messages_${userAddress}`
-      localStorage.removeItem(pendingKey)
-      setPendingMessages([])
-      setLastSyncTime(Date.now())
-
-      console.log('🎉 All messages synced to Sapphire!')
     } catch (error) {
-      console.error('Sync failed:', error)
+      console.error("❌ Sync request error:", error);
     }
-  }
+  };
+
+
 
   if (loading) {
     return (
@@ -377,20 +309,6 @@ export default function ChatPage() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
-                    {pendingMessages.length > 0 && (
-                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                        {pendingMessages.length} pending sync
-                      </Badge>
-                    )}
-                    <Button
-                      onClick={syncPendingMessages}
-                      disabled={pendingMessages.length === 0}
-                      variant="outline"
-                      size="sm"
-                      className="border-white/20 text-gray-300 hover:bg-white/10 bg-transparent backdrop-blur-sm"
-                    >
-                      Sync to Sapphire
-                    </Button>
                     <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
                       Booking #{selectedChatRoom.bookingId}
                     </Badge>
