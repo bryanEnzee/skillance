@@ -1,6 +1,6 @@
 import { request, gql } from "graphql-request";
 
-const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/118071/skillance/v0.0.8";
+const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/118071/skillance/v0.0.10";
 
 const query = gql`
   query GetJobs {

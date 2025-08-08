@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,9 +12,8 @@ import { ArrowLeft, Plus, X, DollarSign, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import Navigation from "@/components/navigation"
-import { ethers } from "ethers";
+import { ethers } from "ethers"
 import { getFreelanceJobsContract } from "@/lib/contract"
-
 
 export default function PostJobPage() {
   const [formData, setFormData] = useState({
@@ -29,6 +27,9 @@ export default function PostJobPage() {
   const [newSkill, setNewSkill] = useState("")
   const [isPosting, setIsPosting] = useState(false)
   const [isPosted, setIsPosted] = useState(false)
+
+  // State untuk file dokumen
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
 
   const addSkill = () => {
     if (newSkill.trim() && !formData.skills.includes(newSkill.trim())) {
@@ -47,63 +48,67 @@ export default function PostJobPage() {
     })
   }
 
-  // const handleSubmit = async (e: React.FormEvent) => {
-  //   e.preventDefault()
-  //   setIsPosting(true)
-  //   // Simulate posting process
-  //   await new Promise((resolve) => setTimeout(resolve, 2000))
-  //   setIsPosting(false)
-  //   setIsPosted(true)
-  // }
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsPosting(true);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setAttachedFiles([...attachedFiles, ...Array.from(e.target.files)])
+    }
+  }
 
-  try {
-    const contract = getFreelanceJobsContract();
-    
-    // Convert values from form data to the correct format
-    const budgetInWei = ethers.utils.parseEther(formData.budget);
-    const stakeRequiredInWei = ethers.utils.parseEther(formData.stakeRequired.toString());
-    const postingFee = "0.005"; 
+  const removeFile = (index: number) => {
+    setAttachedFiles(attachedFiles.filter((_, i) => i !== index))
+  }
 
-    const tx = await contract.postJob(
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsPosting(true)
+    // window.location.href = "/freelance"
+
+
+    try {
+      const contract = getFreelanceJobsContract()
+
+      // Convert values from form data to the correct format
+      const budgetInWei = ethers.utils.parseEther(formData.budget)
+      const stakeRequiredInWei = ethers.utils.parseEther(formData.stakeRequired.toString())
+      const postingFee = "0.005"
+
+      // TODO: Upload attachedFiles to storage (IPFS/S3/Backend) dan ambil link
+      // Contoh dummy:
+      const documentLinks = attachedFiles.map((file) => file.name) // ganti dengan link hasil upload
+
+      const tx = await contract.postJob(
         formData.title,
-        formData.description,
+        formData.description + "\nDocuments: " + JSON.stringify(documentLinks),
         JSON.stringify(formData.skills),
         budgetInWei,
         Number(formData.duration),
         stakeRequiredInWei,
-        { value: ethers.utils.parseEther(postingFee) } // Sending the posting fee with the transaction
-    );
+        { value: ethers.utils.parseEther(postingFee) }
+      )
 
-    await tx.wait();
-    setIsPosted(true);
-  } catch (error: any) {
-      console.error("Failed to post job:", error);
-      let message = "Something went wrong while posting the job.";
+      await tx.wait()
+      setIsPosted(true)
+    } catch (error: any) {
+      console.error("Failed to post job:", error)
+      let message = "Something went wrong while posting the job."
       if (error?.reason) {
-        message += ` Reason: ${error.reason}`;
+        message += ` Reason: ${error.reason}`
       } else if (error?.data?.message) {
-        message += ` Message: ${error.data.message}`;
+        message += ` Message: ${error.data.message}`
       } else if (error?.message) {
-        message += ` Message: ${error.message}`;
+        message += ` Message: ${error.message}`
       }
-      alert(message);
-  } finally {
-      setIsPosting(false);
+      alert(message)
+    } finally {
+      setIsPosting(false)
+    }
   }
-};
 
   if (isPosted) {
     return (
       <Navigation>
         <div className="min-h-screen flex items-center justify-center p-6">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6 }}
-          >
+          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6 }}>
             <Card className="max-w-md mx-auto bg-white/5 border-white/10 backdrop-blur-xl">
               <CardContent className="p-8 text-center">
                 <motion.div
@@ -148,12 +153,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     <Navigation>
       <div className="p-6 lg:p-12">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="mb-12"
-        >
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="mb-12">
           <div className="flex items-center space-x-4 mb-6">
             <Link href="/freelance">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -171,11 +171,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         </motion.div>
 
         <div className="max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.8 }}
-          >
+          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8 }}>
             <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
               <CardHeader>
                 <CardTitle className="text-white font-light text-2xl">Job Details</CardTitle>
@@ -187,9 +183,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <form onSubmit={handleSubmit} className="space-y-8">
                   {/* Job Title */}
                   <div className="space-y-2">
-                    <Label htmlFor="title" className="text-white font-light">
-                      Job Title
-                    </Label>
+                    <Label htmlFor="title" className="text-white font-light">Job Title</Label>
                     <Input
                       id="title"
                       value={formData.title}
@@ -202,9 +196,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                   {/* Description */}
                   <div className="space-y-2">
-                    <Label htmlFor="description" className="text-white font-light">
-                      Project Description
-                    </Label>
+                    <Label htmlFor="description" className="text-white font-light">Project Description</Label>
                     <Textarea
                       id="description"
                       value={formData.description}
@@ -219,9 +211,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {/* Budget and Duration */}
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="budget" className="text-white font-light">
-                        Budget 
-                      </Label>
+                      <Label htmlFor="budget" className="text-white font-light">Budget</Label>
                       <Input
                         id="budget"
                         value={formData.budget}
@@ -232,9 +222,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="duration" className="text-white font-light">
-                        Project Duration
-                      </Label>
+                      <Label htmlFor="duration" className="text-white font-light">Project Duration</Label>
                       <Input
                         id="duration"
                         value={formData.duration}
@@ -258,12 +246,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
                       />
                       <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                        <Button
-                          type="button"
-                          onClick={addSkill}
-                          size="sm"
-                          className="bg-blue-500/80 hover:bg-blue-500 font-light"
-                        >
+                        <Button type="button" onClick={addSkill} size="sm" className="bg-blue-500/80 hover:bg-blue-500 font-light">
                           <Plus className="h-4 w-4" />
                         </Button>
                       </motion.div>
@@ -271,22 +254,10 @@ const handleSubmit = async (e: React.FormEvent) => {
                     {formData.skills.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-4">
                         {formData.skills.map((skill, index) => (
-                          <motion.div
-                            key={skill}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: index * 0.1 }}
-                          >
-                            <Badge
-                              variant="secondary"
-                              className="bg-blue-500/20 text-blue-300 border-blue-500/30 font-light"
-                            >
+                          <motion.div key={skill} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.1 }}>
+                            <Badge variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-500/30 font-light">
                               {skill}
-                              <button
-                                type="button"
-                                onClick={() => removeSkill(skill)}
-                                className="ml-2 hover:text-red-400 transition-colors"
-                              >
+                              <button type="button" onClick={() => removeSkill(skill)} className="ml-2 hover:text-red-400 transition-colors">
                                 <X className="h-3 w-3" />
                               </button>
                             </Badge>
@@ -296,19 +267,51 @@ const handleSubmit = async (e: React.FormEvent) => {
                     )}
                   </div>
 
+                  {/* Attach Documents */}
+                  <div className="space-y-2">
+                    <Label className="text-white font-light">Attach Documents</Label>
+                    <div className="flex space-x-2">
+                      <input
+                        type="file"
+                        id="fileInput"
+                        className="hidden"
+                        onChange={handleFileChange}
+                        multiple
+                      />
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          type="button"
+                          onClick={() => document.getElementById('fileInput')?.click()}
+                          size="sm"
+                          className="bg-blue-500/80 hover:bg-blue-500 font-light"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </motion.div>
+                    </div>
+                    {attachedFiles.length > 0 && (
+                      <div className="flex flex-col gap-2 mt-4">
+                        {attachedFiles.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between bg-white/5 px-3 py-2 rounded">
+                            <span className="text-gray-300 text-sm truncate">{file.name}</span>
+                            <button type="button" onClick={() => removeFile(index)} className="text-red-400 hover:text-red-500">
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Stake Requirement */}
                   <div className="space-y-2">
-                    <Label htmlFor="stake" className="text-white font-light">
-                      Application Stake Requirement
-                    </Label>
+                    <Label htmlFor="stake" className="text-white font-light">Application Stake Requirement</Label>
                     <div className="relative">
                       <Input
                         id="stake"
                         type="number"
                         value={formData.stakeRequired}
-                        onChange={(e) =>
-                          setFormData({ ...formData, stakeRequired: Number.parseInt(e.target.value) || 0 })
-                        }
+                        onChange={(e) => setFormData({ ...formData, stakeRequired: Number.parseInt(e.target.value) || 0 })}
                         className="pl-10 bg-white/5 border-white/10 text-white font-light backdrop-blur-sm focus:bg-white/10 transition-all duration-300"
                         min="50"
                         max="500"
