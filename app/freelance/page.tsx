@@ -9,7 +9,6 @@ import { Search, Plus, DollarSign, Clock, Users, Star, TrendingUp, Shield } from
 import Link from "next/link"
 import { motion } from "framer-motion"
 import Navigation from "@/components/navigation"
-import AIChat from "@/components/ai-chat"
 import MyActivitiesButton from "@/components/my-activities-button"
 import { fetchJobsFromSubgraph } from "@/lib/fetchJobsFromSubgraph"
 import { ethers } from "ethers"
