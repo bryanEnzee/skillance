@@ -11,10 +11,12 @@ import { motion } from "framer-motion"
 import Navigation from "@/components/navigation"
 import MyActivitiesButton from "@/components/my-activities-button"
 import { fetchJobsFromSubgraph } from "@/lib/fetchJobsFromSubgraph"
+import { fetchTotalJobs } from "@/lib/fetchTotalJobsFromSubgraph";
 import { ethers } from "ethers"
 
 export default function FreelancePage() {
     const [jobs, setJobs] = useState<any[]>([]);
+    const [jobsCount, setJobsCount] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [userAddress, setUserAddress] = useState<string | null>(null);
@@ -40,6 +42,9 @@ export default function FreelancePage() {
                 const jobsFromSubgraph = await fetchJobsFromSubgraph();
                 setJobs(jobsFromSubgraph);
 
+                // Fetch stats (count)
+                const { jobsCount } = await fetchTotalJobs();
+                setJobsCount(jobsCount);
             } catch (error) {
                 console.error("An error occurred:", error);
             } finally {
@@ -134,7 +139,7 @@ export default function FreelancePage() {
                                         <div className="flex items-center space-x-2">
                                             <TrendingUp className="h-4 w-4 text-green-400" />
                                             <span className="text-gray-300 font-light">
-                                                <span className="text-white font-medium">24</span> active projects
+                                                <span className="text-white font-medium">{jobsCount ?? "—"}</span> active projects
                                             </span>
                                         </div>
                                         <div className="flex items-center space-x-2">

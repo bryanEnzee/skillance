@@ -1,18 +1,34 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Users, Briefcase, TrendingUp, Star, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import Navigation from "@/components/navigation"
+import { fetchTotalJobs } from "@/lib/fetchTotalJobsFromSubgraph"
 
 export default function HomePage() {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null)
+  const [jobsCount, setJobsCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const { jobsCount } = await fetchTotalJobs()
+        if (mounted) setJobsCount(jobsCount)
+      } catch (e) {
+        console.error("Failed to fetch jobs count:", e)
+        if (mounted) setJobsCount(0)
+      }
+    })()
+    return () => { mounted = false }
+  }, [])
 
   const stats = [
     { label: "Total Earnings", value: "$2,450", icon: TrendingUp, color: "text-green-400" },
-    { label: "Active Projects", value: "3", icon: Briefcase, color: "text-blue-400" },
+    { label: "Active Projects", value: jobsCount ?? "—", icon: Briefcase, color: "text-blue-400" },
     { label: "Mentorship Hours", value: "24", icon: Users, color: "text-purple-400" },
     { label: "Rating", value: "4.9", icon: Star, color: "text-yellow-400" },
   ]

@@ -6,17 +6,35 @@ import { Users, Briefcase, Wallet, TrendingUp, Star, MessageCircle } from "lucid
 import Link from "next/link"
 import { ConnectWallet, useAddress } from "@thirdweb-dev/react"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { fetchTotalJobs } from "@/lib/fetchTotalJobsFromSubgraph";
+
 
 export default function Dashboard() {
   const address = useAddress();
   const router = useRouter();
+  const [jobsCount, setJobsCount] = useState<number | null>(null)
 
   useEffect(() => {
     if (!address) {
       router.push('/');
     }
   }, [address, router]);
+
+    // fetch total jobs once
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const { jobsCount } = await fetchTotalJobs()
+        if (mounted) setJobsCount(jobsCount)
+      } catch (e) {
+        console.error("Failed to fetch jobs count:", e)
+        if (mounted) setJobsCount(0)
+      }
+    })()
+    return () => { mounted = false }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
@@ -60,7 +78,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-400 text-sm">Active Projects</p>
-                  <p className="text-2xl font-bold text-blue-400">3</p>
+                  <p className="text-2xl font-bold text-blue-400">{jobsCount ?? "—"}</p>
                 </div>
                 <Briefcase className="h-8 w-8 text-blue-400" />
               </div>
