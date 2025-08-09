@@ -26,4 +26,5 @@ type Application @entity (immutable: true) {
   applicant: Bytes!
   proposal: String!
   status: String!
+  stakedAmount: BigInt!
 }

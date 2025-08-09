@@ -1,6 +1,6 @@
 import { request, gql } from "graphql-request";
 
-const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/118071/skillance/v0.0.11";
+const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/118071/skillance/v0.0.12";
 
 const query = gql`
   query GetJobs {
@@ -19,6 +19,7 @@ const query = gql`
         applicant
         proposal
         status
+        stakedAmount
       }
     }
   }
@@ -29,6 +30,7 @@ interface ApplicationData {
     applicant: string;
     proposal: string;
     status: string;
+    stakedAmount: string;
 }
 
 interface JobData {

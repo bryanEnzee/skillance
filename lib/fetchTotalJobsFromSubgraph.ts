@@ -1,4 +1,4 @@
-const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/118071/skillance/v0.0.11";
+const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/118071/skillance/v0.0.12";
 
 export async function fetchTotalJobs() {
   const qWithConnection = `

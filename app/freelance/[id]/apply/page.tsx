@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, DollarSign, Clock, Users, CheckCircle, Shield, XCircle, Link as LinkIcon, Edit, Upload } from "lucide-react";
+import { ArrowLeft, DollarSign, Clock, Users, CheckCircle, Shield, XCircle, Link as LinkIcon, Edit, Upload, Lock, Unlock } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import Navigation from "@/components/navigation";
@@ -17,7 +17,7 @@ import { ethers, BigNumber } from "ethers";
 import FreelanceJobsABI from "@/artifacts/contracts/FreelanceJobs.sol/FreelanceJobs.json"; 
 // import FreelanceJobsContract from "@/lib/contract";
 
-const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/118071/skillance/v0.0.11";
+const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/118071/skillance/v0.0.12";
 const CONTRACT_ADDRESS = "0x2d4BdDCEfc75335Ae8653bEEc453eAF326804B5b"; 
 
 const GET_JOB_WITH_APPLICATIONS_QUERY = gql`
@@ -43,6 +43,7 @@ const GET_JOB_WITH_APPLICATIONS_QUERY = gql`
         applicant
         proposal
         status
+        stakedAmount
       }
     }
   }
@@ -53,6 +54,7 @@ interface ApplicationData {
   applicant: string;
   proposal: string;
   status: string;
+  stakedAmount: string; // Add stakedAmount to the interface
 }
 
 interface SingleJobData {
@@ -86,7 +88,7 @@ const fetchJobDetails = async (jobId: string) => {
   const cleanedDescription = descriptionLines[0].trim();
   const documentUrls = descriptionLines.length > 1 ? descriptionLines[1].trim().split(',').map(url => url.trim()) : [];
 
- let skillsArray: string[];
+  let skillsArray: string[];
   if (Array.isArray(job.skills)) {
     skillsArray = job.skills;
   } else if (typeof job.skills === 'string') {
@@ -121,6 +123,7 @@ const fetchJobDetails = async (jobId: string) => {
     paid: job.paid
   };
 };
+
 export default function ApplyJobPage() {
   const params = useParams();
   const jobId = params.id as string;
@@ -130,12 +133,13 @@ export default function ApplyJobPage() {
   const [error, setError] = useState<string | null>(null);
   const [proposal, setProposal] = useState("");
   const [isApplying, setIsApplying] = useState(false);
-  const [isApplied, setIsApplied] = useState(false);
+  const [userAppliedStatus, setUserAppliedStatus] = useState<ApplicationData | null>(null);
   const [userAddress, setUserAddress] = useState<string | null>(null);
   const [applicants, setApplicants] = useState<ApplicationData[]>([]);
   const [applicantsLoading, setApplicantsLoading] = useState(false);
   const [submittedWorkUrl, setSubmittedWorkUrl] = useState("");
   const [isSubmittingWork, setIsSubmittingWork] = useState(false);
+  const [isLockingStake, setIsLockingStake] = useState(false);
 
   const [viewMoreStatus, setViewMoreStatus] = useState<Record<string, boolean>>({});
 
@@ -173,8 +177,8 @@ export default function ApplyJobPage() {
         setApplicants(data.applications);
         
         if (userAddress) {
-          const hasUserApplied = data.applications.some(app => app.applicant.toLowerCase() === userAddress.toLowerCase());
-          setIsApplied(hasUserApplied);
+          const userApplication = data.applications.find(app => app.applicant.toLowerCase() === userAddress.toLowerCase());
+          setUserAppliedStatus(userApplication || null);
         }
       } else {
         setError("Job not found.");
@@ -198,6 +202,7 @@ export default function ApplyJobPage() {
     }
   }, [jobId, userAddress]);
 
+  // Handle application without stake
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsApplying(true);
@@ -210,19 +215,17 @@ export default function ApplyJobPage() {
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI, signer);
-      
-      const stakeAmount = ethers.utils.parseEther(jobData.stakeRequired.toString());
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI.abi, signer);
       
       const tx = await contract.applyForJob(
         jobData.jobId,
-        proposal,
-        { value: stakeAmount }
+        proposal
+        // No 'value' object is sent here
       );
       await tx.wait();
       
+      alert("Application submitted successfully! Waiting for employer review.");
       setIsApplying(false);
-      setIsApplied(true);
       fetchData(); 
       
     } catch (error: any) {
@@ -232,6 +235,40 @@ export default function ApplyJobPage() {
     }
   };
   
+  // Handle lock stake
+  const handleLockStake = async () => {
+    setIsLockingStake(true);
+    if (typeof window.ethereum === 'undefined') {
+      alert("Please install MetaMask to lock stake.");
+      setIsLockingStake(false);
+      return;
+    }
+
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI.abi, signer);
+      
+      const stakeAmount = ethers.utils.parseEther(jobData.stakeRequired.toString());
+      
+      const tx = await contract.lockStake(
+        jobData.jobId,
+        { value: stakeAmount }
+      );
+      await tx.wait();
+
+      alert("Stake locked successfully!");
+      setIsLockingStake(false);
+      fetchData();
+
+    } catch (error: any) {
+      console.error("Error locking stake:", error);
+      alert(`Failed to lock stake: ${error.message || "Unknown error"}`);
+      setIsLockingStake(false);
+    }
+  };
+
+  // Handle accept application
   const handleAccept = async (applicantAddress: string) => {
     if (typeof window.ethereum === 'undefined') {
       alert("Please install MetaMask.");
@@ -241,12 +278,12 @@ export default function ApplyJobPage() {
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI, signer);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI.abi, signer);
       
       const tx = await contract.acceptApplication(jobData.jobId, applicantAddress);
       await tx.wait();
       
-      alert("Applicant accepted successfully!");
+      alert("Applicant accepted successfully! They can now lock their stake and begin work.");
       fetchData(); 
       
     } catch (error: any) {
@@ -255,6 +292,7 @@ export default function ApplyJobPage() {
     }
   };
 
+  // Handle reject application
   const handleReject = async (applicantAddress: string) => {
     if (typeof window.ethereum === 'undefined') {
       alert("Please install MetaMask.");
@@ -264,12 +302,12 @@ export default function ApplyJobPage() {
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI, signer);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI.abi, signer);
       
       const tx = await contract.rejectApplication(jobData.jobId, applicantAddress);
       await tx.wait();
       
-      alert("Applicant rejected successfully, stake returned.");
+      alert("Applicant rejected successfully.");
       fetchData(); 
       
     } catch (error: any) {
@@ -290,7 +328,7 @@ export default function ApplyJobPage() {
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI, signer);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI.abi, signer);
       
       const tx = await contract.submitWork(jobData.jobId, submittedWorkUrl);
       await tx.wait();
@@ -315,7 +353,7 @@ export default function ApplyJobPage() {
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI, signer);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, FreelanceJobsABI.abi, signer);
       
       const tx = await contract.approveWork(jobData.jobId);
       await tx.wait();
@@ -358,7 +396,9 @@ export default function ApplyJobPage() {
   }
   
   const isOwner = userAddress && jobData.employer && userAddress.toLowerCase() === jobData.employer.toLowerCase();
-  const isAcceptedFreelancer = userAddress && jobData.acceptedApplicant && userAddress.toLowerCase() === jobData.acceptedApplicant.toLowerCase();
+  const userApplied = userAppliedStatus !== null;
+  const isAcceptedFreelancer = userApplied && userAppliedStatus?.status === "Accepted";
+  const hasStaked = userApplied && Number(userAppliedStatus?.stakedAmount) > 0;
 
   return (
     <Navigation>
@@ -386,6 +426,7 @@ export default function ApplyJobPage() {
 
         <div className="grid lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2, duration: 0.8 }} className="lg:col-span-2">
+            {/* Bagian detail post job tetap sama */}
             <Card className="bg-white/5 border-white/10 backdrop-blur-xl mb-6">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -398,7 +439,7 @@ export default function ApplyJobPage() {
               <CardContent className="space-y-6">
                 <p className="text-gray-300 font-light leading-relaxed">{jobData.description}</p>
                 
-                {jobData.documentUrls && jobData.documentUrls.length > 0 && (
+                {(isOwner || userApplied) && jobData.documentUrls && jobData.documentUrls.length > 0 && (
                   <div className="bg-white/5 border border-white/10 p-4 rounded-xl backdrop-blur-sm">
                     <div className="flex items-center space-x-2">
                       <LinkIcon className="h-5 w-5 text-gray-400" />
@@ -442,7 +483,9 @@ export default function ApplyJobPage() {
               </CardContent>
             </Card>
 
+            {/* Bagian ini adalah yang sudah disesuaikan */}
             {isOwner ? (
+              // Tampilan untuk employer: daftar pelamar
               <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
                 <CardHeader>
                   <CardTitle className="text-white font-light text-2xl">Applicants</CardTitle>
@@ -463,6 +506,7 @@ export default function ApplyJobPage() {
                         const isLongProposal = proposalText.length > 150;
                         const isAccepted = applicant.status === "Accepted";
                         const isRejected = applicant.status === "Rejected";
+                        const hasStaked = Number(applicant.stakedAmount) > 0;
 
                         return (
                           <div key={applicant.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 rounded-xl bg-white/5 border border-white/10 shadow-sm">
@@ -471,6 +515,11 @@ export default function ApplyJobPage() {
                                 <Users className="h-4 w-4 mr-2 text-purple-400" />
                                 <span className="text-white font-medium">Applicant:</span>
                                 <span className="ml-2 text-gray-300 font-light overflow-hidden text-ellipsis whitespace-nowrap">{applicant.applicant}</span>
+                                {hasStaked && (
+                                    <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 font-light ml-2">
+                                        <Lock className="h-3 w-3 mr-1" /> Stake Locked
+                                    </Badge>
+                                )}
                               </div>
                               <div className="mt-2">
                                 <span className="font-medium text-gray-300">Proposal: </span>
@@ -509,84 +558,110 @@ export default function ApplyJobPage() {
                               )}
                             </div>
                           </div>
-                        )
+                        );
                       })}
                     </div>
                   )}
                 </CardContent>
               </Card>
             ) : isAcceptedFreelancer ? (
+              // Tampilan untuk freelancer yang sudah diterima
               <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
                 <CardHeader>
-                  <CardTitle className="text-white font-light text-2xl">Work Submission</CardTitle>
+                  <CardTitle className="text-white font-light text-2xl">
+                    {hasStaked ? "Work Submission" : "Acceptance Confirmation"}
+                  </CardTitle>
                   <CardDescription className="text-gray-400 font-light">
-                    You have been accepted for this job. Submit your work to get paid.
+                    {hasStaked
+                        ? "You have been accepted and staked your ETH. Submit your work to get paid."
+                        : "You have been accepted for this job. Lock your stake to begin."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {jobData.workSubmitted ? (
-                    <div>
-                      <p className="text-gray-300 font-light">Work Submitted: <a href={jobData.submittedWorkUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">{jobData.submittedWorkUrl}</a></p>
-                      {jobData.paid ? (
-                        <Badge className="mt-4 bg-green-500/20 text-green-400 border-green-500/30">
-                           <DollarSign className="h-4 w-4 mr-2" /> Payment Received
-                        </Badge>
-                      ) : (
-                        <Badge className="mt-4 bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                          <Clock className="h-4 w-4 mr-2" /> Waiting for Employer's Approval
-                        </Badge>
-                      )}
-                    </div>
-                  ) : (
-                    <form onSubmit={handleWorkSubmit} className="space-y-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="work-url" className="text-white font-light">
-                          Work URL
-                        </Label>
-                        <Textarea 
-                          id="work-url"
-                          value={submittedWorkUrl}
-                          onChange={(e) => setSubmittedWorkUrl(e.target.value)}
-                          placeholder="Paste the URL to your completed work here (e.g., Google Drive, GitHub, etc.)"
-                          rows={4}
-                          className="bg-white/5 border-white/10 text-white placeholder-gray-400 font-light backdrop-blur-sm focus:bg-white/10 transition-all duration-300"
-                          required
-                        />
-                      </div>
-                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                        <Button type="submit" disabled={isSubmittingWork || !submittedWorkUrl.trim()} className="w-full bg-gradient-to-r from-green-500/80 to-cyan-500/80 hover:from-green-500 hover:to-cyan-500 text-white font-light py-4 text-lg">
-                          {isSubmittingWork ? (
-                            <div className="flex items-center space-x-2">
-                              <motion.div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }} />
-                              <span>Submitting Work...</span>
+                  {hasStaked ? (
+                    jobData.workSubmitted ? (
+                        <div>
+                            <p className="text-gray-300 font-light">Work Submitted: <a href={jobData.submittedWorkUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">{jobData.submittedWorkUrl}</a></p>
+                            {jobData.paid ? (
+                                <Badge className="mt-4 bg-green-500/20 text-green-400 border-green-500/30">
+                                    <DollarSign className="h-4 w-4 mr-2" /> Payment Received
+                                </Badge>
+                            ) : (
+                                <Badge className="mt-4 bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                                    <Clock className="h-4 w-4 mr-2" /> Waiting for Employer's Approval
+                                </Badge>
+                            )}
+                        </div>
+                    ) : (
+                        <form onSubmit={handleWorkSubmit} className="space-y-6">
+                            <div className="space-y-2">
+                                <Label htmlFor="work-url" className="text-white font-light">
+                                    Work URL
+                                </Label>
+                                <Textarea
+                                    id="work-url"
+                                    value={submittedWorkUrl}
+                                    onChange={(e) => setSubmittedWorkUrl(e.target.value)}
+                                    placeholder="Paste the URL to your completed work here (e.g., Google Drive, GitHub, etc.)"
+                                    rows={4}
+                                    className="bg-white/5 border-white/10 text-white placeholder-gray-400 font-light backdrop-blur-sm focus:bg-white/10 transition-all duration-300"
+                                    required
+                                />
                             </div>
-                          ) : (
-                            <>
-                              <Upload className="h-4 w-4 mr-2" /> Submit Work
-                            </>
-                          )}
-                        </Button>
-                      </motion.div>
-                    </form>
+                            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                                <Button type="submit" disabled={isSubmittingWork || !submittedWorkUrl.trim()} className="w-full bg-gradient-to-r from-green-500/80 to-cyan-500/80 hover:from-green-500 hover:to-cyan-500 text-white font-light py-4 text-lg">
+                                    {isSubmittingWork ? (
+                                        <div className="flex items-center space-x-2">
+                                            <motion.div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }} />
+                                            <span>Submitting Work...</span>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Upload className="h-4 w-4 mr-2" /> Submit Work
+                                        </>
+                                    )}
+                                </Button>
+                            </motion.div>
+                        </form>
+                    )
+                  ) : (
+                      <div className="text-center">
+                          <p className="text-gray-300 font-light mb-4">
+                              Lock your stake of <span className="font-medium text-yellow-400">{jobData.stakeRequired} ETH</span> to accept the job offer and begin the project.
+                          </p>
+                          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                              <Button onClick={handleLockStake} disabled={isLockingStake} className="w-full bg-yellow-500/80 hover:bg-yellow-500 text-white font-light py-4 text-lg">
+                                  {isLockingStake ? (
+                                      <div className="flex items-center space-x-2">
+                                          <motion.div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }} />
+                                          <span>Locking Stake...</span>
+                                      </div>
+                                  ) : (
+                                      <>
+                                          <Lock className="h-4 w-4 mr-2" /> Lock Stake
+                                      </>
+                                  )}
+                              </Button>
+                          </motion.div>
+                      </div>
                   )}
                 </CardContent>
               </Card>
-            ) : isApplied ? (
+            ) : userApplied ? (
+              // Tampilan untuk pelamar yang sudah mendaftar tapi belum di-accept
               <Card className="max-w-md mx-auto bg-white/5 border-white/10 backdrop-blur-xl">
                 <CardContent className="p-8 text-center">
                   <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring", stiffness: 200 }}>
-                    <CheckCircle className="h-16 w-16 text-green-400 mx-auto mb-4" />
+                    <Clock className="h-16 w-16 text-blue-400 mx-auto mb-4" />
                   </motion.div>
                   <h2 className="text-2xl font-light text-white mb-2">Application Submitted!</h2>
                   <p className="text-gray-300 mb-4 font-light">
                     Your application has been submitted successfully. Waiting for the employer to review.
                   </p>
-                  <p className="text-gray-300 mb-4 font-light">
-                    Your stake of {jobData.stakeRequired} ETH has been locked.
-                  </p>
                 </CardContent>
               </Card>
             ) : (
+              // Tampilan default untuk melamar pekerjaan
               <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
                 <CardHeader>
                   <CardTitle className="text-white font-light text-2xl">Your Proposal</CardTitle>
@@ -600,7 +675,7 @@ export default function ApplyJobPage() {
                       <Label htmlFor="proposal" className="text-white font-light">
                         Cover Letter
                       </Label>
-                      <Textarea 
+                      <Textarea
                         id="proposal"
                         value={proposal}
                         onChange={(e) => setProposal(e.target.value)}
@@ -618,7 +693,7 @@ export default function ApplyJobPage() {
                             <span>Processing Application...</span>
                           </div>
                         ) : (
-                          `Apply & Stake ${jobData.stakeRequired} ETH`
+                          `Apply for Job`
                         )}
                       </Button>
                     </motion.div>
@@ -628,6 +703,7 @@ export default function ApplyJobPage() {
             )}
           </motion.div>
 
+          {/* Bagian ini adalah yang sudah disesuaikan */}
           <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4, duration: 0.8 }} className="lg:col-span-1">
             <Card className="bg-white/5 border-white/10 backdrop-blur-xl sticky top-24">
               <CardHeader>
@@ -645,13 +721,13 @@ export default function ApplyJobPage() {
                     <span className="text-gray-300 font-light">Required Stake:</span>
                     <span className="text-yellow-400 font-bold text-xl">{jobData.stakeRequired} ETH</span>
                   </div>
-                  <p className="text-sm text-gray-400 font-light">This amount will be locked when you apply</p>
+                  <p className="text-sm text-gray-400 font-light">This amount will be locked when you are accepted and agree to begin the project.</p>
                 </div>
                 
                 <div className="space-y-4">
                   <h4 className="text-white font-light">How it works:</h4>
                   <div className="space-y-3 text-sm text-gray-300">
-                    {["Stake is locked upon application", "Complete the project successfully", "Receive payment + stake return", "Leave review to complete process",].map((step, index) => (
+                    {["Apply without stake", "Employer accepts your application", "Lock stake to confirm acceptance", "Complete the project & get paid",].map((step, index) => (
                       <motion.div key={step} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6 + index * 0.1, duration: 0.5 }} className="flex items-start space-x-3">
                         <div className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
                         <span className="font-light">{step}</span>

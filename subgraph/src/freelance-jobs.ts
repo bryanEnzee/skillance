@@ -4,7 +4,9 @@ import {
   JobApplied,
   ApplicationStatusUpdated,
   WorkSubmitted,
-  PaymentApproved
+  PaymentApproved,
+  StakeLocked, // Import event baru
+  StakeReturned
 } from "../generated/FreelanceJobs/FreelanceJobs"
 import { Job, Application } from "../generated/schema"
 
@@ -23,7 +25,7 @@ export function handleJobPosted(event: JobPosted): void {
   
   job.hasFreelancer = false
   job.acceptedApplicant = Bytes.fromHexString("0x0000000000000000000000000000000000000000")
-  job.submittedWorkUrl = ""
+  job.submittedWorkUrl = null // Set to null instead of empty string for clarity
   job.workSubmitted = false
   job.paid = false
 
@@ -38,8 +40,24 @@ export function handleJobApplied(event: JobApplied): void {
   application.applicant = event.params.applicant
   application.proposal = event.params.proposal
   application.status = "Pending"
+  application.stakedAmount = BigInt.fromI32(0) // Inisialisasi stakedAmount ke 0
   
   application.save()
+}
+
+export function handleStakeLocked(event: StakeLocked): void {
+  const applicationId = event.params.jobId.toString() + "-" + event.params.applicant.toHexString()
+  let application = Application.load(applicationId)
+
+  if (application) {
+    application.stakedAmount = event.params.stakedAmount
+    application.save()
+  } else {
+    log.error("Application for Job {} and Applicant {} not found to lock stake", [
+      event.params.jobId.toString(),
+      event.params.applicant.toHexString()
+    ])
+  }
 }
 
 export function handleApplicationStatusUpdated(event: ApplicationStatusUpdated): void {
@@ -57,15 +75,15 @@ export function handleApplicationStatusUpdated(event: ApplicationStatusUpdated):
   let application = Application.load(applicationId)
 
   if (application) {
-      if (status == 1) { 
-        application.status = "Accepted"
-        job.hasFreelancer = true
-        job.acceptedApplicant = applicantAddress
-      } else { 
-        application.status = "Rejected"
-      }
-      application.save()
-      job.save()
+    if (status == 1) { // 1 = Accepted
+      application.status = "Accepted"
+      job.hasFreelancer = true
+      job.acceptedApplicant = applicantAddress
+    } else { // 2 = Rejected
+      application.status = "Rejected"
+    }
+    application.save()
+    job.save()
   } else {
     log.error("Application for Job {} and Applicant {} not found", [jobId, applicantAddress.toHexString()])
   }
@@ -92,3 +110,23 @@ export function handlePaymentApproved(event: PaymentApproved): void {
   ])
 }
 
+// Tambahkan handler untuk event StakeReturned
+export function handleStakeReturned(event: StakeReturned): void {
+  const applicationId = event.params.jobId.toString() + "-" + event.params.applicant.toHexString()
+  let application = Application.load(applicationId)
+
+  if (application) {
+    // Stake amount will be 0 after returned
+    application.stakedAmount = BigInt.fromI32(0) 
+    application.save()
+  } else {
+    log.error("Application for Job {} and Applicant {} not found to return stake", [
+      event.params.jobId.toString(),
+      event.params.applicant.toHexString()
+    ])
+  }
+  log.info("Stake returned for jobId {} to applicant {}", [
+    event.params.jobId.toString(),
+    event.params.applicant.toHexString()
+  ])
+}
