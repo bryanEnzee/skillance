@@ -1,6 +1,6 @@
 import { request, gql } from "graphql-request";
 
-const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/118071/skillance/v0.0.10";
+const SUBGRAPH_URL = "https://api.studio.thegraph.com/query/118071/skillance/v0.0.11";
 
 const query = gql`
   query GetJobs {
@@ -13,12 +13,25 @@ const query = gql`
       durationInDays
       stakeRequired
       postedAt
+      employer
+      applications {
+        id
+        applicant
+        proposal
+        status
+      }
     }
   }
 `;
 
-// Define interface for one job item
-interface Job {
+interface ApplicationData {
+    id: string;
+    applicant: string;
+    proposal: string;
+    status: string;
+}
+
+interface JobData {
   jobId: string;
   title: string;
   description: string;
@@ -27,11 +40,12 @@ interface Job {
   durationInDays: number;
   stakeRequired: string;
   postedAt: string;
+  employer: string;
+  applications: ApplicationData[]; 
 }
 
-// Define interface for the query response
 interface JobsData {
-  jobs: Job[];
+  jobs: JobData[];
 }
 
 export const fetchJobsFromSubgraph = async (): Promise<{
@@ -46,11 +60,11 @@ export const fetchJobsFromSubgraph = async (): Promise<{
   posted: string;
   rating: number;
   urgent: boolean;
+  employer: string;
+  applications: ApplicationData[];
 }[]> => {
-  // Tell request what data shape to expect
   const data = await request<JobsData>(SUBGRAPH_URL, query);
 
-  // Post-process and return typed jobs
   return data.jobs.map((job) => ({
     id: job.jobId,
     title: job.title,
@@ -58,10 +72,12 @@ export const fetchJobsFromSubgraph = async (): Promise<{
     skills: JSON.parse(job.skills || "[]"),
     budget: `${Number(job.budget) / 1e18} ETH`,
     duration: `${job.durationInDays || 0} days`,
-    stakeRequired: Number(job.stakeRequired || 0) / 1e18,
-    applicants: 0,
+    stakeRequired: Number(job.stakeRequired || "0") / 1e18,
+    applicants: job.applications ? job.applications.length : 0, 
     posted: "On-chain",
     rating: 4.8,
     urgent: false,
+    employer: job.employer, 
+    applications: job.applications,
   }));
 };

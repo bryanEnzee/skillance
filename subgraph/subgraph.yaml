@@ -1,6 +1,4 @@
 specVersion: 1.3.0
-indexerHints:
-  prune: auto
 schema:
   file: ./schema.graphql
 dataSources:
@@ -17,10 +15,19 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - Job
+        - Application
       abis:
         - name: FreelanceJobs
           file: ./abis/FreelanceJobs.json
       eventHandlers:
         - event: JobPosted(indexed uint256,indexed address,string,string,string,uint256,uint256,uint256)
           handler: handleJobPosted
+        - event: JobApplied(indexed uint256,indexed address,string,uint256)
+          handler: handleJobApplied
+        - event: ApplicationStatusUpdated(indexed uint256,indexed address,uint8)
+          handler: handleApplicationStatusUpdated
+        - event: WorkSubmitted(indexed uint256,indexed address,string)
+          handler: handleWorkSubmitted
+        - event: PaymentApproved(indexed uint256,indexed address,uint256)
+          handler: handlePaymentApproved
       file: ./src/freelance-jobs.ts

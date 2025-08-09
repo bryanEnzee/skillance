@@ -1,4 +1,4 @@
-type Job @entity(immutable: false) {
+type Job @entity(immutable: true) {
   id: ID!
   jobId: BigInt!
   employer: Bytes!
@@ -6,7 +6,24 @@ type Job @entity(immutable: false) {
   description: String!
   skills: String!
   budget: BigInt!
-  durationInDays: Int!
+  durationInDays: BigInt!
   stakeRequired: BigInt!
   postedAt: BigInt!
+
+  hasFreelancer: Boolean!
+  acceptedApplicant: Bytes
+
+  submittedWorkUrl: String 
+  workSubmitted: Boolean!
+  paid: Boolean! 
+  
+  applications: [Application!] @derivedFrom(field: "job")
+}
+
+type Application @entity (immutable: true) {
+  id: ID!
+  job: Job!
+  applicant: Bytes!
+  proposal: String!
+  status: String!
 }

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Plus, X, DollarSign, CheckCircle } from "lucide-react"
+import { ArrowLeft, Plus, X, DollarSign, CheckCircle, Link as LinkIcon } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import Navigation from "@/components/navigation"
@@ -22,14 +22,15 @@ export default function PostJobPage() {
     budget: "",
     duration: "",
     skills: [] as string[],
-    stakeRequired: 0.025,
   })
   const [newSkill, setNewSkill] = useState("")
   const [isPosting, setIsPosting] = useState(false)
   const [isPosted, setIsPosted] = useState(false)
 
-  // State untuk file dokumen
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const [documentUrls, setDocumentUrls] = useState<string[]>([]);
+  const [newDocumentUrl, setNewDocumentUrl] = useState("");
+
+  const stakeRequired = formData.budget ? Number(formData.budget) * 0.25 : 0;
 
   const addSkill = () => {
     if (newSkill.trim() && !formData.skills.includes(newSkill.trim())) {
@@ -48,37 +49,34 @@ export default function PostJobPage() {
     })
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setAttachedFiles([...attachedFiles, ...Array.from(e.target.files)])
+  const addDocumentUrl = () => {
+    if (newDocumentUrl.trim() && documentUrls.length < 3) {
+      setDocumentUrls([...documentUrls, newDocumentUrl.trim()])
+      setNewDocumentUrl("")
     }
   }
 
-  const removeFile = (index: number) => {
-    setAttachedFiles(attachedFiles.filter((_, i) => i !== index))
+  const removeDocumentUrl = (index: number) => {
+    setDocumentUrls(documentUrls.filter((_, i) => i !== index))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsPosting(true)
-    // window.location.href = "/freelance"
-
 
     try {
       const contract = getFreelanceJobsContract()
 
-      // Convert values from form data to the correct format
       const budgetInWei = ethers.utils.parseEther(formData.budget)
-      const stakeRequiredInWei = ethers.utils.parseEther(formData.stakeRequired.toString())
+      const stakeRequiredInWei = ethers.utils.parseEther(stakeRequired.toString())
       const postingFee = "0.005"
 
-      // TODO: Upload attachedFiles to storage (IPFS/S3/Backend) dan ambil link
-      // Contoh dummy:
-      const documentLinks = attachedFiles.map((file) => file.name) // ganti dengan link hasil upload
-
+      const documentUrlString = documentUrls.length > 0 ? `\n\nProject documents: ${documentUrls.join(", ")}` : "";
+      const finalDescription = `${formData.description}${documentUrlString}`;
+      
       const tx = await contract.postJob(
         formData.title,
-        formData.description + "\nDocuments: " + JSON.stringify(documentLinks),
+        finalDescription, 
         JSON.stringify(formData.skills),
         budgetInWei,
         Number(formData.duration),
@@ -98,7 +96,7 @@ export default function PostJobPage() {
       } else if (error?.message) {
         message += ` Message: ${error.message}`
       }
-      alert(message)
+      console.log(message)
     } finally {
       setIsPosting(false)
     }
@@ -208,6 +206,44 @@ export default function PostJobPage() {
                     />
                   </div>
 
+                  {/* Document URLs */}
+                  <div className="space-y-2">
+                    <Label className="text-white font-light">Project Document Links (Max 3)</Label>
+                    <div className="flex space-x-2">
+                      <div className="relative flex-1">
+                        <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <Input
+                          value={newDocumentUrl}
+                          onChange={(e) => setNewDocumentUrl(e.target.value)}
+                          placeholder="e.g., https://docs.google.com/document/d/..."
+                          className="pl-10 bg-white/5 border-white/10 text-white placeholder-gray-400 font-light backdrop-blur-sm focus:bg-white/10 transition-all duration-300"
+                          onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addDocumentUrl())}
+                          disabled={documentUrls.length >= 3}
+                        />
+                      </div>
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button type="button" onClick={addDocumentUrl} size="sm" className="bg-blue-500/80 hover:bg-blue-500 font-light" disabled={documentUrls.length >= 3 || !newDocumentUrl.trim()}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </motion.div>
+                    </div>
+                    {documentUrls.length > 0 && (
+                      <div className="flex flex-col gap-2 mt-4">
+                        {documentUrls.map((url, index) => (
+                          <div key={index} className="flex items-center justify-between bg-white/5 px-3 py-2 rounded">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-white font-medium text-sm">{index + 1}.</span>
+                              <Link href={url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors duration-300 text-sm truncate">{url}</Link>
+                            </div>
+                            <button type="button" onClick={() => removeDocumentUrl(index)} className="text-red-400 hover:text-red-500 ml-2">
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Budget and Duration */}
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -234,91 +270,14 @@ export default function PostJobPage() {
                     </div>
                   </div>
 
-                  {/* Skills */}
-                  <div className="space-y-2">
-                    <Label className="text-white font-light">Required Skills</Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        value={newSkill}
-                        onChange={(e) => setNewSkill(e.target.value)}
-                        placeholder="Add a skill..."
-                        className="bg-white/5 border-white/10 text-white placeholder-gray-400 font-light backdrop-blur-sm focus:bg-white/10 transition-all duration-300"
-                        onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
-                      />
-                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                        <Button type="button" onClick={addSkill} size="sm" className="bg-blue-500/80 hover:bg-blue-500 font-light">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </motion.div>
-                    </div>
-                    {formData.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-4">
-                        {formData.skills.map((skill, index) => (
-                          <motion.div key={skill} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.1 }}>
-                            <Badge variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-500/30 font-light">
-                              {skill}
-                              <button type="button" onClick={() => removeSkill(skill)} className="ml-2 hover:text-red-400 transition-colors">
-                                <X className="h-3 w-3" />
-                              </button>
-                            </Badge>
-                          </motion.div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Attach Documents */}
-                  <div className="space-y-2">
-                    <Label className="text-white font-light">Attach Documents</Label>
-                    <div className="flex space-x-2">
-                      <input
-                        type="file"
-                        id="fileInput"
-                        className="hidden"
-                        onChange={handleFileChange}
-                        multiple
-                      />
-                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                        <Button
-                          type="button"
-                          onClick={() => document.getElementById('fileInput')?.click()}
-                          size="sm"
-                          className="bg-blue-500/80 hover:bg-blue-500 font-light"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </motion.div>
-                    </div>
-                    {attachedFiles.length > 0 && (
-                      <div className="flex flex-col gap-2 mt-4">
-                        {attachedFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between bg-white/5 px-3 py-2 rounded">
-                            <span className="text-gray-300 text-sm truncate">{file.name}</span>
-                            <button type="button" onClick={() => removeFile(index)} className="text-red-400 hover:text-red-500">
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
                   {/* Stake Requirement */}
                   <div className="space-y-2">
                     <Label htmlFor="stake" className="text-white font-light">Application Stake Requirement</Label>
                     <div className="relative">
-                      <Input
-                        id="stake"
-                        type="number"
-                        value={formData.stakeRequired}
-                        onChange={(e) => setFormData({ ...formData, stakeRequired: Number.parseInt(e.target.value) || 0 })}
-                        className="pl-10 bg-white/5 border-white/10 text-white font-light backdrop-blur-sm focus:bg-white/10 transition-all duration-300"
-                        min="50"
-                        max="500"
-                      />
+                      <span className="block text-xl font-bold text-yellow-400 mt-2">{stakeRequired.toFixed(4)} ETH</span>
                     </div>
                     <p className="text-sm text-gray-400 font-light">
-                      Applicants must stake this amount to apply. Higher stakes ensure more committed applicants.
+                      Applicants must stake 25% of the total budget to apply.
                     </p>
                   </div>
 
@@ -343,7 +302,7 @@ export default function PostJobPage() {
                   <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                     <Button
                       type="submit"
-                      disabled={isPosting || !formData.title || !formData.description || !formData.budget}
+                      disabled={isPosting || !formData.title || !formData.description || !formData.budget || stakeRequired <= 0}
                       className="w-full bg-gradient-to-r from-blue-500/80 to-cyan-500/80 hover:from-blue-500 hover:to-cyan-500 text-white font-light py-4 text-lg"
                     >
                       {isPosting ? (
