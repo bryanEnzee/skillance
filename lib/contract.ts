@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
-import FreelanceJobsABI from "../artifacts/contracts/FreelanceJobs.sol/FreelanceJobs.json";
+// Using ABI from subgraph build (artifact-style JSON with .abi field)
+import FreelanceJobsABI from "../subgraph/abis/FreelanceJobs.json";
 
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_FREELANCE_JOBS_ADDRESS;
