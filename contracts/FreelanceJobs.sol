@@ -15,7 +15,7 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
         string skills;
         uint256 budget; // Budget in wei
         uint256 durationInDays;
-        uint256 stakeRequired; 
+        uint256 stakeRequired;
         bool isPosted;
         bool hasFreelancer;
         address acceptedApplicant;
@@ -27,7 +27,7 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
     struct Application {
         address applicant;
         string proposal;
-        uint256 stakedAmount;
+        uint256 stakedAmount; // This will be 0 initially and updated later
         ApplicationStatus status;
     }
 
@@ -35,8 +35,9 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
     mapping(uint256 => Job) public jobs;
     mapping(uint256 => Application[]) public applications;
     mapping(address => mapping(uint256 => bool)) private hasApplied;
+    mapping(address => mapping(uint256 => uint256)) private applicantIndex;
 
-    uint256 public constant POSTING_FEE = 5000000000000000; 
+    uint256 public constant POSTING_FEE = 5000000000000000;
     uint256 public totalPostingFees;
 
     event JobPosted(
@@ -53,7 +54,12 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
     event JobApplied(
         uint256 indexed jobId,
         address indexed applicant,
-        string proposal,
+        string proposal
+    );
+
+    event StakeLocked(
+        uint256 indexed jobId,
+        address indexed applicant,
         uint256 stakedAmount
     );
 
@@ -85,10 +91,6 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
         nextJobId = 1;
     }
 
-    /**
-     * @dev Posts a new job listing.
-     * The employer must send the correct posting fee and job budget with the transaction.
-     */
     function postJob(
         string memory _title,
         string memory _description,
@@ -122,7 +124,7 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
             paid: false
         });
         nextJobId++;
-        
+
         totalPostingFees += POSTING_FEE;
 
         emit JobPosted(
@@ -137,37 +139,42 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
         );
     }
 
-    /**
-     * @dev Allows a freelancer to apply for a job.
-     * The freelancer must send the required stake with the transaction.
-     * @param _jobId The ID of the job to apply for.
-     * @param _proposal The proposal message from the freelancer.
-     */
-    function applyForJob(uint256 _jobId, string memory _proposal) external payable nonReentrant {
+    // New function: Apply for a job without sending any stake.
+    // The stake will be sent later.
+    function applyForJob(uint256 _jobId, string memory _proposal) external nonReentrant {
         Job storage job = jobs[_jobId];
         require(job.isPosted, "Job does not exist.");
         require(msg.sender != job.employer, "Employer cannot apply for their own job.");
-        require(msg.value == job.stakeRequired, "Incorrect stake amount provided.");
         require(!job.hasFreelancer, "Freelancer for this job has already been selected.");
         require(!hasApplied[msg.sender][_jobId], "You have already applied for this job.");
 
         applications[_jobId].push(Application({
             applicant: msg.sender,
             proposal: _proposal,
-            stakedAmount: msg.value,
+            stakedAmount: 0, // Stake is 0 initially
             status: ApplicationStatus.Pending
         }));
-        
-        hasApplied[msg.sender][_jobId] = true;
 
-        emit JobApplied(_jobId, msg.sender, _proposal, msg.value);
+        hasApplied[msg.sender][_jobId] = true;
+        applicantIndex[msg.sender][_jobId] = applications[_jobId].length - 1;
+
+        emit JobApplied(_jobId, msg.sender, _proposal);
     }
 
-    /**
-     * @dev Allows the employer to accept an applicant.
-     * @param _jobId The ID of the job.
-     * @param _applicantAddress The address of the applicant to accept.
-     */
+    // New function: Allows the accepted applicant to send their stake after being accepted.
+    function lockStake(uint256 _jobId) external payable nonReentrant {
+        Job storage job = jobs[_jobId];
+        require(msg.sender == job.acceptedApplicant, "Only the accepted applicant can lock stake.");
+        require(msg.value == job.stakeRequired, "Incorrect stake amount provided.");
+
+        uint256 appIndex = applicantIndex[msg.sender][_jobId];
+        Application storage app = applications[_jobId][appIndex];
+        require(app.stakedAmount == 0, "Stake has already been locked for this application.");
+
+        app.stakedAmount = msg.value;
+        emit StakeLocked(_jobId, msg.sender, msg.value);
+    }
+
     function acceptApplication(uint256 _jobId, address _applicantAddress) external nonReentrant {
         Job storage job = jobs[_jobId];
         require(msg.sender == job.employer, "Only the employer can accept an application.");
@@ -184,22 +191,15 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
                 applicantFound = true;
                 emit ApplicationStatusUpdated(_jobId, _applicantAddress, ApplicationStatus.Accepted);
             } else if (app.status == ApplicationStatus.Pending) {
-                // Reject other pending applicants and return their stake
+                // Reject other pending applicants. No stake to return yet.
                 app.status = ApplicationStatus.Rejected;
-                (bool success, ) = payable(app.applicant).call{value: app.stakedAmount}("");
-                require(success, "Failed to return stake.");
                 emit ApplicationStatusUpdated(_jobId, app.applicant, ApplicationStatus.Rejected);
-                emit StakeReturned(_jobId, app.applicant, app.stakedAmount);
             }
         }
         require(applicantFound, "Applicant not found or already processed.");
     }
-    
-    /**
-     * @dev Allows the employer to reject an applicant.
-     * @param _jobId The ID of the job.
-     * @param _applicantAddress The address of the applicant to reject.
-     */
+
+    // This function needs to be updated to handle the stake refund if the applicant hasn't paid yet.
     function rejectApplication(uint256 _jobId, address _applicantAddress) external nonReentrant {
         Job storage job = jobs[_jobId];
         require(msg.sender == job.employer, "Only the employer can reject an application.");
@@ -212,37 +212,33 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
             if (app.applicant == _applicantAddress) {
                 require(app.status == ApplicationStatus.Pending, "Application is not in Pending state.");
                 app.status = ApplicationStatus.Rejected;
-                (bool success, ) = payable(_applicantAddress).call{value: app.stakedAmount}("");
-                require(success, "Failed to return stake.");
+
+                // Return stake only if it has been paid
+                if (app.stakedAmount > 0) {
+                    (bool success, ) = payable(_applicantAddress).call{value: app.stakedAmount}("");
+                    require(success, "Failed to return stake.");
+                    emit StakeReturned(_jobId, _applicantAddress, app.stakedAmount);
+                }
+
                 applicantFound = true;
                 emit ApplicationStatusUpdated(_jobId, _applicantAddress, ApplicationStatus.Rejected);
-                emit StakeReturned(_jobId, _applicantAddress, app.stakedAmount);
                 break;
             }
         }
         require(applicantFound, "Applicant not found.");
     }
 
-    /**
-     * @dev Allows the accepted freelancer to submit the work.
-     * @param _jobId The ID of the job.
-     * @param _submittedWorkUrl The URL of the submitted work.
-     */
     function submitWork(uint256 _jobId, string memory _submittedWorkUrl) external nonReentrant {
         Job storage job = jobs[_jobId];
         require(msg.sender == job.acceptedApplicant, "Only the accepted freelancer can submit work.");
-        require(!job.workSubmitted, "Work has already been submitted.");
+        require(applications[_jobId][applicantIndex[msg.sender][_jobId]].stakedAmount == job.stakeRequired, "Stake must be locked before submitting work.");        require(!job.workSubmitted, "Work has already been submitted.");
         require(bytes(_submittedWorkUrl).length > 0, "Work URL cannot be empty.");
-        
+
         job.submittedWorkUrl = _submittedWorkUrl;
         job.workSubmitted = true;
         emit WorkSubmitted(_jobId, msg.sender, _submittedWorkUrl);
     }
 
-    /**
-     * @dev Allows the employer to approve the submitted work and release the payment.
-     * @param _jobId The ID of the job.
-     */
     function approveWork(uint256 _jobId) external nonReentrant {
         Job storage job = jobs[_jobId];
         require(msg.sender == job.employer, "Only the employer can approve the work.");
@@ -250,18 +246,20 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
         require(job.workSubmitted, "Work has not been submitted yet.");
         require(!job.paid, "Payment has already been made for this job.");
 
-        uint256 totalPayment = job.budget + job.stakeRequired;
+        // Get the staked amount from the accepted applicant's application
+        uint256 appIndex = applicantIndex[job.acceptedApplicant][_jobId];
+        uint256 stakedAmount = applications[_jobId][appIndex].stakedAmount;
+        require(stakedAmount == job.stakeRequired, "Staked amount is not correct.");
+
+        uint256 totalPayment = job.budget + stakedAmount;
         (bool success, ) = payable(job.acceptedApplicant).call{value: totalPayment}("");
         require(success, "Failed to transfer payment to freelancer.");
-        
+
         job.paid = true;
 
         emit PaymentApproved(_jobId, job.acceptedApplicant, totalPayment);
     }
 
-    /**
-     * @dev Withdraws the posting fees. Only the contract owner can call this.
-     */
     function withdrawFees() external onlyOwner {
         uint256 feesToWithdraw = totalPostingFees;
         require(feesToWithdraw > 0, "No fees to withdraw.");
@@ -307,9 +305,10 @@ contract FreelanceJobs is Ownable, ReentrancyGuard {
     function getApplication(uint256 _jobId, uint256 _index) external view returns (
         address applicant,
         string memory proposal,
-        ApplicationStatus status
+        ApplicationStatus status,
+        uint256 stakedAmount
     ) {
         Application memory app = applications[_jobId][_index];
-        return (app.applicant, app.proposal, app.status);
+        return (app.applicant, app.proposal, app.status, app.stakedAmount);
     }
 }

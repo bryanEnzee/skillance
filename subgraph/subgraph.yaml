@@ -22,7 +22,7 @@ dataSources:
       eventHandlers:
         - event: JobPosted(indexed uint256,indexed address,string,string,string,uint256,uint256,uint256)
           handler: handleJobPosted
-        - event: JobApplied(indexed uint256,indexed address,string,uint256)
+        - event: JobApplied(indexed uint256,indexed address,string)
           handler: handleJobApplied
         - event: ApplicationStatusUpdated(indexed uint256,indexed address,uint8)
           handler: handleApplicationStatusUpdated
