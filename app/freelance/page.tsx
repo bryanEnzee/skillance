@@ -105,7 +105,7 @@ export default function FreelancePage() {
                         </div>
                         <Link href="/freelance/post">
                             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                <Button className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30 border border-blue-500/30 backdrop-blur-sm text-white font-light">
+                                <Button className="bg-gradient-to-r from-blue-500/80 to-cyan-500/80 hover:from-blue-500 hover:to-cyan-500 border-0 backdrop-blur-sm text-white font-light">
                                     <Plus className="h-4 w-4 mr-2" />
                                     Post Job
                                 </Button>
