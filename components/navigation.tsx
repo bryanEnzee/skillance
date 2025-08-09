@@ -5,11 +5,12 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Wallet, Zap, Users, Briefcase, Home, MessageCircle, Star } from "lucide-react"
+import { Wallet, Users, Briefcase, Home, MessageCircle, Star } from "lucide-react"
 import { ConnectWallet, useAddress } from "@thirdweb-dev/react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
+import Image from "next/image"
 
 interface NavigationProps {
   children: React.ReactNode
@@ -36,6 +37,7 @@ export default function Navigation({ children }: NavigationProps) {
   ]
 
   const isActive = (href: string) => {
+    if (!pathname) return false
     if (href === "/home") return pathname === "/home"
     return pathname.startsWith(href)
   }
@@ -56,7 +58,7 @@ export default function Navigation({ children }: NavigationProps) {
           <Link href="/home">
             <motion.div className="flex items-center space-x-3 cursor-pointer" whileHover={{ scale: 1.05 }}>
               <div className="relative flex-shrink-0">
-                <Zap className="h-8 w-8 text-blue-400" />
+                <Image src="/skillance-logo.png" alt="Skillance Logo" width={32} height={32} className="h-8 w-8" />
                 <motion.div
                   className="absolute inset-0 bg-blue-400/20 rounded-full blur-md"
                   animate={{ scale: [1, 1.2, 1] }}

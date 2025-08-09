@@ -1,0 +1,10 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="skillanceGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E88E5;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#6A4C93;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E91E63;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <path d="M256 0C397.4 0 512 114.6 512 256S397.4 512 256 512S0 397.4 0 256S114.6 0 256 0ZM256 64C149.5 64 64 149.5 64 256S149.5 448 256 448S448 362.5 448 256S362.5 64 256 64ZM320 128C355.3 128 384 156.7 384 192C384 227.3 355.3 256 320 256H256V320C256 355.3 227.3 384 192 384C156.7 384 128 355.3 128 320C128 284.7 156.7 256 192 256H256V192C256 156.7 284.7 128 320 128Z" fill="url(#skillanceGradient)"/>
+</svg>

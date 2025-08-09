@@ -2,13 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Wallet, Zap, Users, Briefcase, Shield, Star, ArrowRight, ChevronDown } from "lucide-react"
+import { Wallet, Users, Briefcase, Shield, Star, ArrowRight, ChevronDown, CreditCard, MessageCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import dynamic from "next/dynamic"
+import Image from "next/image"
 
-// Dynamically import WalletConnectButton to prevent SSR issues
+// Dynamically import components to prevent SSR issues
 const WalletConnectButton = dynamic(() => import("@/components/wallet-connect"), {
+  ssr: false,
+})
+
+const ArchitectureFlow = dynamic(() => import("@/components/ArchitectureFlow"), {
   ssr: false,
 })
 
@@ -33,7 +38,33 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden relative">
+    <div className="min-h-screen bg-black text-white overflow-hidden relative scrollbar-hide">
+      <style jsx global>{`
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .scrollbar-hide {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
+        }
+        
+        body {
+          overflow-x: hidden;
+        }
+        
+        html {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          scroll-behavior: smooth;
+        }
+        
+        html::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
       {/* Animated Background */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-purple-900/10 to-black"></div>
@@ -72,7 +103,7 @@ export default function LandingPage() {
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
               <div className="relative">
-                <Zap className="h-8 w-8 text-blue-400" />
+                <Image src="/skillance-logo.png" alt="Skillance Logo" width={32} height={32} className="h-8 w-8" />
                 <motion.div
                   className="absolute inset-0 bg-blue-400/20 rounded-full blur-md"
                   animate={{ scale: [1, 1.2, 1] }}
@@ -83,17 +114,21 @@ export default function LandingPage() {
             </motion.div>
 
             <div className="hidden md:flex items-center space-x-8">
-              {["Features", "How it Works", "Security"].map((item, index) => (
+              {[
+                { label: "Features", href: "#features" },
+                { label: "How it Works", href: "#how-it-works" },
+                { label: "Security", href: "#security" }
+              ].map((item, index) => (
                 <motion.a
-                  key={item}
-                  href={`#${item.toLowerCase().replace(" ", "-")}`}
+                  key={item.label}
+                  href={item.href}
                   className="text-gray-400 hover:text-white transition-colors duration-300 text-sm font-light tracking-wide"
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 * index, duration: 0.6 }}
                   whileHover={{ y: -2 }}
                 >
-                  {item}
+                  {item.label}
                 </motion.a>
               ))}
             </div>
@@ -110,28 +145,31 @@ export default function LandingPage() {
             transition={{ duration: 1, ease: "easeOut" }}
           >
             <motion.h1
-              className="text-6xl md:text-8xl font-extralight mb-8 leading-tight"
+              className="text-6xl md:text-8xl font-extralight mb-8 leading-tight text-center"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1.2, ease: "easeOut" }}
             >
-              <span className="bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
-                Future of
+              <span className="bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">
+                Skill up
               </span>
+              <span className="text-white"> before</span>
               <br />
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                Decentralized Work
+              <span className="bg-gradient-to-r from-purple-400 to-purple-500 bg-clip-text text-transparent">
+                Freelance
               </span>
+              <span className="text-white"> out</span>
             </motion.h1>
 
             <motion.p
-              className="text-xl md:text-2xl text-gray-400 mb-12 max-w-4xl mx-auto font-light leading-relaxed"
+              className="text-xl md:text-2xl text-gray-400 mb-12 max-w-4xl mx-auto font-light leading-relaxed text-center"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.8 }}
             >
               Connect with industry experts and discover premium opportunities in a
-              <span className="text-white"> trustless ecosystem</span>
+              <br />
+              <span className="text-white">trustless ecosystem</span>
             </motion.p>
           </motion.div>
 
@@ -155,7 +193,7 @@ export default function LandingPage() {
                   <span className="text-xl font-light">Connect Wallet</span>
                 </motion.div>
 
-                <p className="text-gray-400 mb-8 text-sm font-light">Secure access using your digital wallet</p>
+                <p className="text-gray-400 mb-8 text-sm font-light text-center">Secure access using your digital wallet</p>
 
                 <div className="w-full">
                   <WalletConnectButton />
@@ -247,6 +285,43 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
+      {/* How it Works Section */}
+      <motion.section
+        id="how-it-works"
+        className="relative z-10 py-32 px-6"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        transition={{ duration: 1 }}
+        viewport={{ once: true }}
+      >
+        <div className="container mx-auto">
+          <motion.h2
+            className="text-5xl font-extralight text-center mb-20"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+          >
+            <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              How it Works
+            </span>
+          </motion.h2>
+
+          <div className="max-w-7xl mx-auto">
+            {/* Architecture Diagram using ReactFlow */}
+            <motion.div
+              className="relative"
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1 }}
+              viewport={{ once: true }}
+            >
+              <ArchitectureFlow />
+            </motion.div>
+          </div>
+        </div>
+      </motion.section>
+
       {/* Security Section */}
       <motion.section
         id="security"
@@ -273,7 +348,7 @@ export default function LandingPage() {
             {[
               { icon: Shield, label: "Blockchain Secured", color: "text-blue-400" },
               { icon: Star, label: "Reputation Based", color: "text-yellow-400" },
-              { icon: Zap, label: "Instant Payments", color: "text-green-400" },
+              { icon: CreditCard, label: "Instant Payments", color: "text-green-400" },
             ].map((item, index) => (
               <motion.div
                 key={item.label}
@@ -302,23 +377,6 @@ export default function LandingPage() {
           </div>
         </div>
       </motion.section>
-
-      {/* Scroll Indicator */}
-      <motion.div
-        className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1, duration: 0.8 }}
-      >
-        <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
-          className="flex flex-col items-center space-y-2 text-gray-500"
-        >
-          <span className="text-xs font-light">Scroll to explore</span>
-          <ChevronDown className="h-4 w-4" />
-        </motion.div>
-      </motion.div>
     </div>
   )
 }
