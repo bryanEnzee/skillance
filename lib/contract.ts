@@ -38,7 +38,10 @@ export const MENTOR_BOOKING_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_MENTOR_BOOK
 export const MENTOR_WALLET_ADDRESS = process.env.NEXT_PUBLIC_MENTOR_WALLET_ADDRESS;
 
 // Get chat storage contract address from environment variable
-export const CHAT_STORAGE_ADDRESS = process.env.NEXT_PUBLIC_CHAT_STORAGE_ADDRESS || "0xebD0D5D054552d8D77287D0ccFA183c15Bd5E34b";
+export const CHAT_STORAGE_ADDRESS = process.env.NEXT_PUBLIC_CHAT_STORAGE_ADDRESS;
+
+// Get mentor registry contract address from environment variable
+export const MENTOR_REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_MENTOR_REGISTRY_ADDRESS;
 
 // Add to the contract ABIs
 export const MENTOR_BOOKING_ESCROW_ABI = [
@@ -102,6 +105,88 @@ export const MENTOR_BOOKING_ESCROW_ABI = [
       { "indexed": false, "type": "uint256", "name": "amount" }
     ],
     "name": "Booked",
+    "type": "event"
+  }
+];
+
+// MentorRegistry ABI for Sapphire
+export const MENTOR_REGISTRY_ABI = [
+  {
+    "inputs": [
+      { "type": "string", "name": "_name" },
+      { "type": "string", "name": "_expertiseArea" },
+      { "type": "string", "name": "_bio" },
+      { "type": "uint256", "name": "_hourlyRate" },
+      { "type": "string", "name": "_portfolioUrl" },
+      { "type": "uint256", "name": "_yearsExperience" },
+      { "type": "string[]", "name": "_skills" },
+      { "type": "string[]", "name": "_languages" }
+    ],
+    "name": "selfRegister",
+    "outputs": [{ "type": "uint256" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "type": "uint256", "name": "mentorId" }],
+    "name": "getMentor",
+    "outputs": [
+      { "type": "uint256", "name": "id" },
+      { "type": "address", "name": "mentorAddress" },
+      { "type": "string", "name": "name" },
+      { "type": "string", "name": "expertiseArea" },
+      { "type": "string", "name": "bio" },
+      { "type": "uint256", "name": "hourlyRate" },
+      { "type": "string", "name": "portfolioUrl" },
+      { "type": "uint256", "name": "yearsExperience" },
+      { "type": "string[]", "name": "skills" },
+      { "type": "string[]", "name": "languages" },
+      { "type": "string", "name": "profileImageHash" },
+      { "type": "bool", "name": "isVerified" },
+      { "type": "bool", "name": "isActive" },
+      { "type": "uint256", "name": "registrationDate" },
+      { "type": "uint256", "name": "totalSessions" },
+      { "type": "uint256", "name": "averageRating" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllMentors",
+    "outputs": [{ "type": "uint256[]" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getVerifiedMentors",
+    "outputs": [{ "type": "uint256[]" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "type": "string", "name": "expertise" }],
+    "name": "getMentorsByExpertise",
+    "outputs": [{ "type": "uint256[]" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "mentorCount",
+    "outputs": [{ "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "type": "uint256", "name": "mentorId" },
+      { "indexed": true, "type": "address", "name": "mentorAddress" },
+      { "indexed": false, "type": "string", "name": "name" }
+    ],
+    "name": "MentorRegistered",
     "type": "event"
   }
 ];

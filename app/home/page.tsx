@@ -196,6 +196,46 @@ export default function HomePage() {
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* Become a Mentor CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2, duration: 0.8 }}
+          className="text-center mt-16"
+        >
+          <Card className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-500/30 backdrop-blur-xl">
+            <CardContent className="p-8">
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                className="space-y-6"
+              >
+                <div className="flex justify-center">
+                  <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                    <Star className="h-8 w-8 text-white" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-light mb-4 text-white">Share Your Expertise</h3>
+                  <p className="text-gray-300 text-lg font-light max-w-2xl mx-auto">
+                    Join our decentralized mentor network and earn ETH by helping others grow. 
+                    Set your own rates, choose your schedule, and make an impact.
+                  </p>
+                </div>
+                <Link href="/mentor/register">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 rounded-xl font-medium text-lg transition-all duration-300 shadow-lg hover:shadow-purple-500/25"
+                  >
+                    Become a Mentor
+                    <ArrowRight className="ml-2 h-5 w-5 inline" />
+                  </motion.button>
+                </Link>
+              </motion.div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     </Navigation>
   )

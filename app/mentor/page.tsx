@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Star, Calendar, MessageCircle, DollarSign, Users } from "lucide-react"
+import { Search, Star, Calendar, MessageCircle, DollarSign, Users, Filter, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import Navigation from "@/components/navigation"
 import AISidebar from "@/components/ai-sidebar"
 import MyActivitiesButton from "@/components/my-activities-button"
 import MainLayout from "@/components/main-layout"
+import { ethers } from "ethers"
+import { MENTOR_REGISTRY_ADDRESS, MENTOR_REGISTRY_ABI } from "@/lib/contract"
 
 const mentors = [
   {
@@ -57,12 +59,20 @@ const mentors = [
 ]
 
 export default function MentorPage() {
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedExpertise, setSelectedExpertise] = useState("All")
+  const [showFilters, setShowFilters] = useState(false)
+  const [contractMentors, setContractMentors] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const filteredMentors = mentors.filter(
+  // Combine static mentors with contract mentors
+  const allMentors = [...mentors, ...contractMentors]
+  
+  const filteredMentors = allMentors.filter(
     (mentor) =>
-      mentor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      mentor.expertise.some((skill) => skill.toLowerCase().includes(searchQuery.toLowerCase())),
+      mentor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (mentor.expertise && mentor.expertise.some((skill: string) => skill.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+      (mentor.skills && mentor.skills.some((skill: string) => skill.toLowerCase().includes(searchTerm.toLowerCase())))
   )
 
   const highlightMentor = (mentorId: number) => {
@@ -76,6 +86,55 @@ export default function MentorPage() {
     }
   }
 
+  // Load mentors from contract
+  const loadContractMentors = async () => {
+    try {
+      if (!window.ethereum) return
+      
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const contract = new ethers.Contract(MENTOR_REGISTRY_ADDRESS, MENTOR_REGISTRY_ABI, provider)
+      
+      // Get all mentor IDs
+      const mentorIds = await contract.getAllMentors()
+      console.log("Found mentor IDs:", mentorIds.map(id => id.toString()))
+      
+      // Load mentor details for each ID
+      const mentorPromises = mentorIds.map(async (id: any) => {
+        try {
+          const mentor = await contract.getMentor(id)
+          return {
+            id: id.toNumber(),
+            name: mentor.name,
+            expertiseArea: mentor.expertiseArea,
+            bio: mentor.bio,
+            hourlyRate: parseFloat(ethers.utils.formatEther(mentor.hourlyRate)),
+            portfolioUrl: mentor.portfolioUrl,
+            yearsExperience: mentor.yearsExperience.toNumber(),
+            skills: mentor.skills,
+            languages: mentor.languages,
+            isVerified: mentor.isVerified,
+            isActive: mentor.isActive,
+            registrationDate: new Date(mentor.registrationDate.toNumber() * 1000),
+            totalSessions: mentor.totalSessions.toNumber(),
+            averageRating: mentor.averageRating.toNumber() / 100, // Assuming rating is stored as percentage
+            available: mentor.isActive
+          }
+        } catch (error) {
+          console.error(`Error loading mentor ${id}:`, error)
+          return null
+        }
+      })
+      
+      const loadedMentors = (await Promise.all(mentorPromises)).filter(Boolean)
+      console.log("Loaded mentors from contract:", loadedMentors)
+      setContractMentors(loadedMentors)
+    } catch (error) {
+      console.error("Error loading mentors from contract:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Listen for custom events from the AI sidebar
   useEffect(() => {
     const handleMentorHighlight = (event: CustomEvent) => {
@@ -85,6 +144,9 @@ export default function MentorPage() {
     }
 
     window.addEventListener('highlightMentor' as any, handleMentorHighlight as EventListener)
+    
+    // Load mentors from contract on component mount
+    loadContractMentors()
 
     return () => {
       window.removeEventListener('highlightMentor' as any, handleMentorHighlight as EventListener)
@@ -122,8 +184,8 @@ export default function MentorPage() {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <Input
                 placeholder="Search mentors by name or expertise..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-12 bg-white/5 border-white/10 text-white placeholder-gray-400 h-12 rounded-xl backdrop-blur-sm focus:bg-white/10 transition-all duration-300"
               />
             </div>
@@ -176,14 +238,14 @@ export default function MentorPage() {
                           )}
                         </div>
 
-                        <p className="text-gray-300 mb-1 font-light">{mentor.title}</p>
-                        <p className="text-gray-400 mb-4 font-light">{mentor.company}</p>
+                        <p className="text-gray-300 mb-1 font-light">{mentor.title || mentor.expertiseArea}</p>
+                        <p className="text-gray-400 mb-4 font-light">{mentor.company || 'Independent'}</p>
 
                         <div className="flex items-center space-x-6 mb-4 text-sm">
                           <div className="flex items-center space-x-2">
                             <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                            <span className="text-white font-medium">{mentor.rating}</span>
-                            <span className="text-gray-400">({mentor.reviews} reviews)</span>
+                            <span className="text-white font-medium">{mentor.rating || mentor.averageRating || 'New'}</span>
+                            <span className="text-gray-400">({mentor.reviews || 0} reviews)</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <DollarSign className="h-4 w-4 text-green-400" />
@@ -191,12 +253,12 @@ export default function MentorPage() {
                           </div>
                           <div className="flex items-center space-x-2">
                             <Users className="h-4 w-4 text-purple-400" />
-                            <span className="text-gray-400">{mentor.sessions} sessions</span>
+                            <span className="text-gray-400">{mentor.sessions || mentor.totalSessions || 0} sessions</span>
                           </div>
                         </div>
 
                         <div className="flex flex-wrap gap-2">
-                          {mentor.expertise.map((skill) => (
+                          {(mentor.expertise || mentor.skills || []).map((skill: string) => (
                             <Badge
                               key={skill}
                               variant="secondary"
@@ -240,6 +302,34 @@ export default function MentorPage() {
             </motion.div>
           ))}
         </div>
+
+        {/* Become a Mentor CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8, duration: 0.6 }}
+          className="mt-12"
+        >
+          <Card className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-500/30 backdrop-blur-xl">
+            <CardContent className="p-8 text-center">
+              <div className="flex justify-center mb-4">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                  <Star className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <h3 className="text-2xl font-light mb-3 text-white">Want to become a mentor?</h3>
+              <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
+                Share your expertise, help others grow, and earn ETH by mentoring the next generation of developers and creators.
+              </p>
+              <Link href="/mentor/register">
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-lg font-medium">
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Become a Mentor
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
       </MainLayout>
       {/* AI Sidebar */}

@@ -9,7 +9,7 @@ import { Search, Send, MessageCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import dynamic from "next/dynamic"
 import { ethers } from "ethers"
-import { CHAT_STORAGE_ADDRESS, CHAT_STORAGE_ABI } from "@/lib/contract"
+import { CHAT_STORAGE_ADDRESS, CHAT_STORAGE_ABI, MENTOR_REGISTRY_ADDRESS, MENTOR_REGISTRY_ABI } from "@/lib/contract"
 
 const Navigation = dynamic(() => import("@/components/navigation"), {
   ssr: false,
@@ -75,44 +75,170 @@ export default function ChatPage() {
 
   const loadUserChatRooms = async () => {
     try {
-      if (!window.ethereum || !CHAT_STORAGE_ADDRESS) return setLoading(false)
+      if (!window.ethereum || !CHAT_STORAGE_ADDRESS) {
+        console.log('❌ Missing ethereum or chat storage address')
+        return setLoading(false)
+      }
+      
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
       const address = accounts[0]
       setUserAddress(address)
+      console.log('👛 User address:', address)
 
       try {
         await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0x5aff' }],
+          params: [{ chainId: '0x5aff' }], // Sapphire Testnet
         })
-      } catch (switchError) { console.log(switchError) }
+        console.log('✅ Switched to Sapphire network')
+      } catch (switchError) { 
+        console.log('⚠️ Network switch error:', switchError) 
+      }
 
       const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const network = await provider.getNetwork()
+      console.log('🌐 Connected to network:', network.chainId, network.name)
+      
       const contract = new ethers.Contract(CHAT_STORAGE_ADDRESS, CHAT_STORAGE_ABI, provider)
+      console.log('📋 Contract address:', CHAT_STORAGE_ADDRESS)
 
-      const chatRoomIds = await contract.getChatRoomsForUser(address)
+      // First, check if the contract exists and has the method
+      try {
+        const code = await provider.getCode(CHAT_STORAGE_ADDRESS)
+        if (code === '0x' || code === '0x0') {
+          console.error('❌ No contract code found at address:', CHAT_STORAGE_ADDRESS)
+          setChatRooms([])
+          return
+        }
+        console.log('✅ Contract exists with code length:', code.length)
+      } catch (codeError) {
+        console.error('❌ Error checking contract code:', codeError)
+        setChatRooms([])
+        return
+      }
+
+      // Try to get chat rooms with better error handling
+      let chatRoomIds: any[] = []
+      try {
+        console.log('🔍 Getting chat rooms for user:', address)
+        chatRoomIds = await contract.getChatRoomsForUser(address)
+        console.log('📊 Found chat room IDs:', chatRoomIds.map((id: any) => id.toNumber()))
+      } catch (getRoomsError: any) {
+        console.error('❌ Error getting chat rooms:', getRoomsError)
+        
+        // Check if it's a revert with a reason
+        if (getRoomsError.reason) {
+          console.log('📝 Revert reason:', getRoomsError.reason)
+        }
+        
+        // Check if it's a CALL_EXCEPTION (method doesn't exist or reverts)
+        if (getRoomsError.code === 'CALL_EXCEPTION') {
+          console.log('🔧 CALL_EXCEPTION - trying alternative approach...')
+          
+          // Try to check if user has any chat rooms by checking total count
+          try {
+            const totalRooms = await contract.chatRoomCount()
+            console.log('📊 Total chat rooms in contract:', totalRooms.toNumber())
+            
+            if (totalRooms.toNumber() === 0) {
+              console.log('ℹ️ No chat rooms exist yet')
+              setChatRooms([])
+              return
+            }
+            
+            // If there are rooms but we can't get user's rooms, show empty state
+            console.log('ℹ️ Chat rooms exist but none found for this user')
+            setChatRooms([])
+            return
+            
+          } catch (countError) {
+            console.error('❌ Error getting chat room count:', countError)
+            setChatRooms([])
+            return
+          }
+        }
+        
+        // For other errors, just set empty and return
+        setChatRooms([])
+        return
+      }
+
+      // If we got chat room IDs, process them
       const rooms: ChatRoom[] = []
+      
+      // Create MentorRegistry contract instance
+      const mentorRegistryContract = new ethers.Contract(MENTOR_REGISTRY_ADDRESS, MENTOR_REGISTRY_ABI, provider)
 
       for (const roomId of chatRoomIds) {
-        const roomData = await contract.chatRooms(roomId)
-        const mentor = mentors.find(m => m.id === roomData.mentorId.toNumber())
-        if (mentor) {
-          rooms.push({
-            id: roomId.toNumber(),
+        try {
+          console.log('🏠 Loading chat room:', roomId.toNumber())
+          const roomData = await contract.chatRooms(roomId)
+          console.log('📄 Room data:', {
             bookingId: roomData.bookingId.toNumber(),
+            user: roomData.user,
             mentorId: roomData.mentorId.toNumber(),
-            mentorName: mentor.name,
-            mentorTitle: mentor.title,
-            avatar: mentor.avatar,
-            lastMessage: "Chat room created",
-            timestamp: new Date(roomData.createdAt.toNumber() * 1000).toLocaleString()
+            active: roomData.active,
+            createdAt: roomData.createdAt.toNumber()
           })
+          
+          if (roomData.active) {
+            let mentor = null
+            const mentorId = roomData.mentorId.toNumber()
+            
+            // Always try to load from MentorRegistry contract first for accuracy
+            try {
+              console.log('🔍 Loading mentor from MentorRegistry contract, ID:', mentorId)
+              const mentorData = await mentorRegistryContract.getMentor(mentorId)
+              mentor = {
+                id: mentorId,
+                name: mentorData.name,
+                title: mentorData.expertiseArea,
+                avatar: "/placeholder.svg?height=40&width=40"
+              }
+              console.log('✅ Loaded mentor from contract:', mentor)
+            } catch (mentorError) {
+              console.log('⚠️ Mentor not found in contract for ID:', mentorId, 'trying static data...')
+              
+              // Fallback to static data only if contract lookup fails
+              mentor = mentors.find(m => m.id === mentorId)
+              if (mentor) {
+                console.log('✅ Found mentor in static data:', mentor)
+              } else {
+                console.log('❌ Mentor not found anywhere for ID:', mentorId)
+              }
+            }
+            
+            if (mentor) {
+              const chatRoom = {
+                id: roomId.toNumber(),
+                bookingId: roomData.bookingId.toNumber(),
+                mentorId: mentorId,
+                mentorName: mentor.name,
+                mentorTitle: mentor.title,
+                avatar: mentor.avatar,
+                lastMessage: "Chat room created",
+                timestamp: new Date(roomData.createdAt.toNumber() * 1000).toLocaleString()
+              }
+              rooms.push(chatRoom)
+              console.log('✅ Added chatroom:', chatRoom)
+            } else {
+              console.log('⚠️ Skipping chatroom - mentor not found for ID:', mentorId)
+            }
+          } else {
+            console.log('⚠️ Chat room is inactive:', roomId.toNumber())
+          }
+        } catch (roomError) {
+          console.error('❌ Error loading room', roomId.toNumber(), ':', roomError)
+          console.error('Full error details:', roomError)
         }
       }
 
+      console.log('✅ Loaded', rooms.length, 'chat rooms')
       setChatRooms(rooms)
+      
     } catch (error) {
-      console.error('Error loading chatrooms:', error)
+      console.error('❌ Error loading chatrooms:', error)
+      setChatRooms([])
     } finally {
       setLoading(false)
     }

@@ -11,7 +11,7 @@ import { motion } from "framer-motion"
 import Navigation from "@/components/navigation"
 import { useRouter, useParams } from "next/navigation"
 import { ethers } from "ethers"
-import { MENTOR_BOOKING_ESCROW_ADDRESS, MENTOR_BOOKING_ESCROW_ABI, MENTOR_WALLET_ADDRESS, CHAT_STORAGE_ADDRESS, CHAT_STORAGE_ABI } from "@/lib/contract"
+import { MENTOR_BOOKING_ESCROW_ADDRESS, MENTOR_BOOKING_ESCROW_ABI, MENTOR_WALLET_ADDRESS, CHAT_STORAGE_ADDRESS, CHAT_STORAGE_ABI, MENTOR_REGISTRY_ADDRESS, MENTOR_REGISTRY_ABI } from "@/lib/contract"
 
 // Dynamic mentors with individual schedules and pricing
 const mentors = [
@@ -117,7 +117,8 @@ export default function BookMentorPage() {
   const params = useParams();
   const router = useRouter();
   const mentorId = Number(params?.id);
-  const mentor = mentors.find((m) => m.id === mentorId) || mentors[0];
+  const [mentor, setMentor] = useState<any>(null);
+  const [isLoadingMentor, setIsLoadingMentor] = useState(true);
   const [selectedDate, setSelectedDate] = useState("")
   const [selectedTime, setSelectedTime] = useState("")
   const [isBooking, setIsBooking] = useState(false)
@@ -125,15 +126,73 @@ export default function BookMentorPage() {
   const [bookingId, setBookingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Set default selected date to first available date
+  // Load mentor data from contract
   useEffect(() => {
-    if (mentor && mentor.schedule.availableDates.length > 0) {
-      const firstAvailable = mentor.schedule.availableDates.find(date => date.available > 0);
-      if (firstAvailable) {
-        setSelectedDate(firstAvailable.date);
+    const loadMentor = async () => {
+      try {
+        if (!window.ethereum) {
+          setError("Please install MetaMask to view mentor details");
+          return;
+        }
+
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const contract = new ethers.Contract(MENTOR_REGISTRY_ADDRESS, MENTOR_REGISTRY_ABI, provider);
+        
+        console.log("Loading mentor with ID:", mentorId);
+        const mentorData = await contract.getMentor(mentorId);
+        
+        const loadedMentor = {
+          id: mentorId,
+          name: mentorData.name,
+          expertiseArea: mentorData.expertiseArea,
+          bio: mentorData.bio,
+          hourlyRate: parseFloat(ethers.utils.formatEther(mentorData.hourlyRate)),
+          portfolioUrl: mentorData.portfolioUrl,
+          yearsExperience: mentorData.yearsExperience.toNumber(),
+          skills: mentorData.skills,
+          languages: mentorData.languages,
+          isVerified: mentorData.isVerified,
+          isActive: mentorData.isActive,
+          totalSessions: mentorData.totalSessions.toNumber(),
+          averageRating: mentorData.averageRating.toNumber() / 100,
+          available: mentorData.isActive,
+          // Default schedule for now - can be enhanced later
+          schedule: {
+            availableDates: [
+              { date: "2024-02-15", day: "Thu", available: 4 },
+              { date: "2024-02-16", day: "Fri", available: 2 },
+              { date: "2024-02-19", day: "Mon", available: 3 },
+              { date: "2024-02-20", day: "Tue", available: 1 },
+            ],
+            timeSlots: [
+              { time: "9:00 AM", available: true },
+              { time: "11:00 AM", available: true },
+              { time: "2:00 PM", available: true },
+              { time: "4:00 PM", available: true },
+            ]
+          }
+        };
+        
+        setMentor(loadedMentor);
+        
+        // Set default selected date to first available date
+        const firstAvailable = loadedMentor.schedule.availableDates.find(date => date.available > 0);
+        if (firstAvailable) {
+          setSelectedDate(firstAvailable.date);
+        }
+        
+      } catch (error) {
+        console.error("Error loading mentor:", error);
+        setError("Failed to load mentor details. Please try again.");
+      } finally {
+        setIsLoadingMentor(false);
       }
+    };
+
+    if (mentorId) {
+      loadMentor();
     }
-  }, [mentor]);
+  }, [mentorId]);
 
   const handleBooking = async () => {
     console.log('=== BOOKING PROCESS START ===');
@@ -382,6 +441,51 @@ export default function BookMentorPage() {
     )
   }
 
+  // Loading state
+  if (isLoadingMentor) {
+    return (
+      <Navigation>
+        <div className="p-6 lg:p-12 flex items-center justify-center min-h-screen">
+          <Card className="w-full max-w-md bg-white/5 border-white/10 backdrop-blur-xl">
+            <CardContent className="p-8 text-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"
+              />
+              <h2 className="text-xl font-light text-white mb-2">Loading Mentor Details...</h2>
+              <p className="text-gray-400 font-light">Please wait while we fetch the mentor information.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </Navigation>
+    )
+  }
+
+  // Error state
+  if (error || !mentor) {
+    return (
+      <Navigation>
+        <div className="p-6 lg:p-12 flex items-center justify-center min-h-screen">
+          <Card className="w-full max-w-md bg-white/5 border-red-500/30 backdrop-blur-xl">
+            <CardContent className="p-8 text-center">
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-red-400 text-2xl">⚠️</span>
+              </div>
+              <h2 className="text-xl font-light text-white mb-2">Error Loading Mentor</h2>
+              <p className="text-gray-400 font-light mb-6">{error || "Mentor not found"}</p>
+              <Link href="/mentor">
+                <Button className="w-full bg-gradient-to-r from-purple-500/80 to-pink-500/80 hover:from-purple-500 hover:to-pink-500 font-light">
+                  Back to Mentors
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </Navigation>
+    )
+  }
+
   return (
     <Navigation>
       <div className="p-6 lg:p-12">
@@ -437,8 +541,8 @@ export default function BookMentorPage() {
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center space-x-2">
                     <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span className="text-white font-medium">{mentor.rating}</span>
-                    <span className="text-gray-400 font-light">({mentor.reviews} reviews)</span>
+                    <span className="text-white font-medium">{mentor.rating || mentor.averageRating || 'New'}</span>
+                    <span className="text-gray-400 font-light">({mentor.reviews || 0} reviews)</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <DollarSign className="h-4 w-4 text-green-400" />
@@ -449,7 +553,7 @@ export default function BookMentorPage() {
                 <div className="space-y-2">
                   <p className="text-gray-300 font-light">Expertise:</p>
                   <div className="flex flex-wrap gap-2">
-                    {mentor.expertise.map((skill) => (
+                    {(mentor.skills || mentor.expertise || []).map((skill) => (
                       <Badge
                         key={skill}
                         variant="secondary"
