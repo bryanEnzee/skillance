@@ -109,9 +109,6 @@ export default function FreelancePage() {
                     </div>
                 </motion.div>
 
-                {/* AI Chat */}
-                <AIChat type="freelance" onRecommendation={handleJobRecommendation} />
-
                 {/* Search and Stats */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
