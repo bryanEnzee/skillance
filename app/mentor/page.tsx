@@ -65,8 +65,8 @@ export default function MentorPage() {
   const [contractMentors, setContractMentors] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // Combine static mentors with contract mentors
-  const allMentors = [...mentors, ...contractMentors]
+  // Use only contract mentors
+  const allMentors = contractMentors
   
   const filteredMentors = allMentors.filter(
     (mentor) =>

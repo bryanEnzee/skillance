@@ -132,12 +132,13 @@ export default function BookMentorPage() {
       try {
         if (!window.ethereum) {
           setError("Please install MetaMask to view mentor details");
+          setIsLoadingMentor(false);
           return;
         }
 
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const contract = new ethers.Contract(MENTOR_REGISTRY_ADDRESS, MENTOR_REGISTRY_ABI, provider);
-        
+
         console.log("Loading mentor with ID:", mentorId);
         const mentorData = await contract.getMentor(mentorId);
         
@@ -172,15 +173,15 @@ export default function BookMentorPage() {
             ]
           }
         };
-        
+
         setMentor(loadedMentor);
-        
+
         // Set default selected date to first available date
         const firstAvailable = loadedMentor.schedule.availableDates.find(date => date.available > 0);
         if (firstAvailable) {
           setSelectedDate(firstAvailable.date);
         }
-        
+
       } catch (error) {
         console.error("Error loading mentor:", error);
         setError("Failed to load mentor details. Please try again.");
@@ -201,7 +202,7 @@ export default function BookMentorPage() {
     console.log('Mentor:', mentor.name, 'ID:', mentor.id);
     console.log('CHAT_STORAGE_ADDRESS:', CHAT_STORAGE_ADDRESS);
     console.log('MENTOR_BOOKING_ESCROW_ADDRESS:', MENTOR_BOOKING_ESCROW_ADDRESS);
-    
+
     if (!selectedDate || !selectedTime) {
       alert('Please select both date and time')
       return
@@ -225,7 +226,7 @@ export default function BookMentorPage() {
       if (!MENTOR_BOOKING_ESCROW_ADDRESS) {
         throw new Error('Mentor booking contract address not configured');
       }
-      
+
       const contract = new ethers.Contract(
         MENTOR_BOOKING_ESCROW_ADDRESS,
         MENTOR_BOOKING_ESCROW_ABI,
@@ -239,7 +240,7 @@ export default function BookMentorPage() {
       const mentorRate = ethers.utils.parseEther(mentor.hourlyRate.toString());
       console.log('Using mentor rate:', mentor.hourlyRate, 'ETH');
 
-      // Call the contract with mentor ID instead of address
+      // Call the contract with mentor ID
       const tx = await contract.bookSession(
         mentor.id,
         dateTimestamp,
@@ -258,7 +259,7 @@ export default function BookMentorPage() {
       // Get the booking ID from the event
       const bookedEvent = receipt.events?.find((event: any) => event.event === 'Booked');
       console.log('Found Booked event:', bookedEvent);
-      
+
       let newBookingId = null;
 
       if (bookedEvent && bookedEvent.args) {
@@ -269,7 +270,7 @@ export default function BookMentorPage() {
       } else {
         console.log('No Booked event found or no args. Trying alternative extraction...');
         console.log('Receipt logs length:', receipt.logs ? receipt.logs.length : 'no logs');
-        
+
         // Alternative: try to get booking ID from logs
         if (receipt.logs && receipt.logs.length > 0) {
           console.log('Transaction logs:', receipt.logs);
@@ -300,14 +301,14 @@ export default function BookMentorPage() {
           try {
             console.log('Contract address:', contract.address);
             console.log('Current network:', await provider.getNetwork());
-            
+
             const currentBookingCount = await contract.bookingCount();
             newBookingId = currentBookingCount.toNumber();
             console.log('Using booking count as ID:', newBookingId);
             setBookingId(newBookingId);
           } catch (fallbackError) {
             console.log('Fallback method failed:', fallbackError);
-            
+
             // Final fallback: just use a timestamp-based ID
             console.log('Using timestamp-based fallback ID...');
             newBookingId = Date.now() % 1000000; // Use last 6 digits of timestamp
@@ -325,7 +326,7 @@ export default function BookMentorPage() {
           console.log('User address:', userAddress);
           console.log('Mentor ID:', mentor.id);
           console.log('Chat storage address:', CHAT_STORAGE_ADDRESS);
-          
+
           // Switch to Sapphire network for chatroom creation
           console.log('Switching to Sapphire network...');
           await window.ethereum.request({
@@ -338,7 +339,7 @@ export default function BookMentorPage() {
           const sapphireSigner = sapphireProvider.getSigner();
           const signerAddress = await sapphireSigner.getAddress();
           console.log('Signer address on Sapphire:', signerAddress);
-          
+
           const chatContract = new ethers.Contract(CHAT_STORAGE_ADDRESS, CHAT_STORAGE_ABI, sapphireSigner);
           console.log('Chat contract created');
 
@@ -350,7 +351,7 @@ export default function BookMentorPage() {
           
           const chatTx = await chatContract.createChatRoom(newBookingId, userAddress, mentor.id);
           console.log('Transaction sent:', chatTx.hash);
-          
+
           const chatReceipt = await chatTx.wait();
           console.log('Transaction confirmed:', chatReceipt.transactionHash);
           console.log('=== CHATROOM CREATION SUCCESS ===');
